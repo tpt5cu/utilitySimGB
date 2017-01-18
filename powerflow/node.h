@@ -247,6 +247,7 @@ public:
 	friend class meter;	// needs access to current_inj
 	friend class substation; //needs access to current_inj
 	friend class triplex_node;	// Needs access to deltamode stuff
+	friend class waterheater_node; // Needs access to deltamode stuff
 	friend class triplex_meter; // needs access to current_inj
 	friend class triplex_load;	// Needs access to deltamode stuff
 	friend class load;			// Needs access to deltamode_inclusive
