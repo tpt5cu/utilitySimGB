@@ -1,3 +1,7 @@
+
+# ignore tags
+tags
+
 # http://www.gnu.org/software/automake
 
 Makefile.in
