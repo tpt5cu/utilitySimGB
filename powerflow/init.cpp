@@ -40,6 +40,7 @@
 #include "emissions.h"
 #include "load_tracker.h"
 #include "triplex_load.h"
+#include "waterheater_node.h"
 #include "impedance_dump.h"
 
 EXPORT CLASS *init(CALLBACKS *fntable, MODULE *module, int argc, char *argv[])
@@ -118,6 +119,7 @@ EXPORT CLASS *init(CALLBACKS *fntable, MODULE *module, int argc, char *argv[])
 	new regulator_configuration(module);
 	new regulator(module);
 	new triplex_node(module);
+	new waterheater_node(module);
 	new triplex_meter(module);
 	new triplex_line(module);
 	new triplex_line_configuration(module);
@@ -288,7 +290,7 @@ EXPORT SIMULATIONMODE interupdate(MODULE *module, TIMESTAMP t0, unsigned int64 d
 				else //Not in service - just pass
 					function_status = SM_DELTA;
 
-				//Just make sure we didn't error 
+				//Just make sure we didn't error
 				if (function_status == (int)SM_ERROR)
 				{
 					gl_error("Powerflow object:%s - deltamode function returned an error!",delta_objects[curr_object_number]->name);
@@ -320,7 +322,7 @@ EXPORT SIMULATIONMODE interupdate(MODULE *module, TIMESTAMP t0, unsigned int64 d
 				error_state = true;
 				break;
 			}
-			
+
 			//De-flag any changes that may be in progress
 			NR_admit_change = false;
 
@@ -406,7 +408,7 @@ EXPORT SIMULATIONMODE interupdate(MODULE *module, TIMESTAMP t0, unsigned int64 d
 		{
 			return SM_ERROR;
 		}
-				
+
 		//Determine how to exit - event or delta driven
 		if (event_driven == false)
 		{
@@ -436,7 +438,7 @@ EXPORT STATUS postupdate(MODULE *module, TIMESTAMP t0, unsigned int64 dt)
 
 		//Deflag the timestep variable as well
 		deltatimestep_running = -1.0;
-		
+
 		return SUCCESS;
 	}
 	else	//Deltamode not wanted, just "succeed"
@@ -488,8 +490,8 @@ int delta_extra_function(unsigned int mode)
 		if (function_status == FAILED)
 			return 0;
 	}
-	
-	return 1;	
+
+	return 1;
 }
 
 CDECL int do_kill()
