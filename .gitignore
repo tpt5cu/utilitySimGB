@@ -1,6 +1,7 @@
 
 # ignore tags
 tags
+documents/
 
 # http://www.gnu.org/software/automake
 
