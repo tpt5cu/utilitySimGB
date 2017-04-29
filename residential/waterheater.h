@@ -188,7 +188,7 @@ public:
 	typedef enum {MODEL_NOT_1ZONE=0, MODEL_NOT_2ZONE=1} WRONGMODEL;
 	void wrong_model(WRONGMODEL msg);
 
-	bool waterheater::sync_waterheater_subsecond(unsigned int64, unsigned long);
+	bool sync_waterheater_subsecond(unsigned int64, unsigned long);
 };
 
 #endif

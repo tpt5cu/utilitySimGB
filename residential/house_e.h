@@ -442,6 +442,7 @@ public:
 	TIMESTAMP sync_enduses(TIMESTAMP t0, TIMESTAMP t1);
 	// update panel circuits for subsecond and return true if non-steady, false if steady
 	bool sync_panel_subsecond(unsigned int64, unsigned long);
+
 	void update_system(double dt=0);
 	void update_model(double dt=0);
 	void check_controls(void);
@@ -464,6 +465,9 @@ public:
 	bool *get_bool(OBJECT *obj, char *name);
 	int *get_enum(OBJECT *obj, char *name);
 };
+
+static bool sync_panel_subsecond(OBJECT *obj, unsigned int64 delta_time, unsigned long dt);
+
 
 inline double sgn(double x) 
 {
