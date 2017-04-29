@@ -141,22 +141,6 @@ EXPORT unsigned long deltamode_desired(int *flags)
 }
 
 
-typedef bool (*SUBSECONDCALL)(unsigned int64,unsigned long);
-typedef struct s_subsecond_call {
-	SUBSECONDCALL call;
-	OBJECT *obj;
-	struct s_subsecond_call *next;
-} SUBSECONDCALLLIST;
-SUBSECONDCALLLIST *calllist = NULL;
-void add_subsecond_call(SUBSECONDCALL *call, OBJECT *obj)
-{
-	SUBSECONDCALLLIST *item = (SUBSECONDCALLLIST*)malloc(sizeof(SUBSECONDCALLLIST));
-	item->call = call;
-	item->obj = obj;
-	item->next = calllist;
-	callist = item;
-}
-
 //preudpate function of deltamode
 //Module-level call at beginning of each deltamode simulation
 //Returns the timestep this module requires - to be used to determine minimimum
@@ -192,6 +176,25 @@ EXPORT unsigned long preupdate(MODULE *module, TIMESTAMP t0, unsigned int64 dt)
 }
 
 
+typedef bool (*SUBSECONDCALL)(unsigned int64,unsigned long);
+
+typedef struct s_subsecond_call {
+	SUBSECONDCALL call;
+	OBJECT *obj;
+	struct s_subsecond_call *next;
+} SUBSECONDCALLLIST;
+
+static SUBSECONDCALLLIST *calllist = NULL;
+
+void add_subsecond_call(SUBSECONDCALL *call, OBJECT *obj)
+{
+	SUBSECONDCALLLIST *item = (SUBSECONDCALLLIST*)malloc(sizeof(SUBSECONDCALLLIST));
+	item->call = call;
+	item->obj = obj;
+	item->next = calllist;
+	callist = item;
+}
+
 //interupdate function of deltamode
 //Module-level call for each timestep of deltamode
 //Ideally, all deltamode objects coordinate through their module call, not their individual "update" call
@@ -199,186 +202,12 @@ EXPORT unsigned long preupdate(MODULE *module, TIMESTAMP t0, unsigned int64 dt)
 EXPORT SIMULATIONMODE interupdate(MODULE *module, TIMESTAMP t0, unsigned int64 delta_time, unsigned long dt, unsigned int iteration_count_val)
 {
 	SIMULATIONMODE function_status = SM_EVENT;
-	
-	bool event_driven = true;
-	bool delta_iter = false;
-	bool bad_computation=false;
-	// NRSOLVERMODE powerflow_type;
-	int64 pf_result;
-	int64 simple_iter_test, limit_minus_one;
-	bool error_state;
-
-	//Set up iteration variables
-	simple_iter_test = 0;
-	limit_minus_one = NR_delta_iteration_limit - 1;
-	error_state = false;
-
-	//See if this is the first instance -- if so, update the timestep (if in-rush enabled)
-	if (deltatimestep_running < 0.0)
+	for ( SUBSECONDCALL *item = calllist ; item != NULL ; item=item->next )
 	{
-		//Set the powerflow global -- technically the same as dt, but in double precision (less divides)
-		deltatimestep_running = (double)((double)dt/(double)DT_SECOND);
+		if ( item->call(item->obj,delta_time,dt) )
+			function_status = SM_DELTA;
 	}
-	//Default else -- already set
-
-	if (enable_subsecond_models == true)
-	{
-		while (simple_iter_test < NR_delta_iteration_limit)	//Simple iteration capability
-		{
-			//Do the preliminary pass, in case we're needed
-			//Loop through the object list and call the updates - loop forward, otherwise parent/child code doesn't work right
-			for (curr_object_number=0; curr_object_number<pwr_object_count; curr_object_number++)
-			{
-				//See if we're in service or not
-				if ((delta_objects[curr_object_number]->in_svc_double <= gl_globaldeltaclock) && (delta_objects[curr_object_number]->out_svc_double >= gl_globaldeltaclock))
-				{
-					if (delta_functions[curr_object_number] != NULL)
-					{
-						//Call the actual function
-						function_status = ((SIMULATIONMODE (*)(OBJECT *, unsigned int64, unsigned long, unsigned int, bool))(*delta_functions[curr_object_number]))(delta_objects[curr_object_number],delta_time,dt,iteration_count_val,false);
-					}
-					else	//No functional call for this, skip it
-					{
-						function_status = SM_EVENT;	//Just put something here, mainly for error checks
-					}
-				}
-				else //Not in service - just pass
-					function_status = SM_DELTA;
-
-				//Just make sure we didn't error 
-				if (function_status == (int)SM_ERROR)
-				{
-					gl_error("Powerflow object:%s - deltamode function returned an error!",delta_objects[curr_object_number]->name);
-					// Defined below
-
-					error_state = true;
-					break;
-				}
-				//Default else, we were okay, so onwards and upwards!
-			}
-
-			//Call dynamic powerflow (start of either predictor or correct set)
-			// powerflow_type = PF_DYNCALC;
-
-			//Put in try/catch, since GL_THROWs inside solver_nr tend to be a little upsetting
-			// try {
-			// 	//Call solver_nr
-			// 	pf_result = solver_nr(NR_bus_count, NR_busdata, NR_branch_count, NR_branchdata, &NR_powerflow, powerflow_type, NULL, &bad_computation);
-			// }
-			// catch (const char *msg)
-			// {
-			// 	gl_error("powerflow:interupdate - solver_nr call: %s", msg);
-			// 	error_state = true;
-			// 	break;
-			// }
-			// catch (...)
-			// {
-			// 	gl_error("powerflow:interupdate - solver_nr call: unknown exception");
-			// 	error_state = true;
-			// 	break;
-			// }
-			
-			//De-flag any changes that may be in progress
-			NR_admit_change = false;
-
-			//Check the status
-			if (bad_computation==true)
-			{
-				gl_error("Newton-Raphson method is unable to converge the dynamic powerflow to a solution at this operation point");
-				/*  TROUBLESHOOT
-				Newton-Raphson has failed to complete even a single iteration on the dynamic powerflow.
-				This is an indication that the method will not solve the system and may have a singularity
-				or other ill-favored condition in the system matrices.
-				*/
-				error_state = true;
-				break;
-			}
-			else if ((pf_result<0) && (simple_iter_test == limit_minus_one))	//Failure to converge - this is a failure in dynamic mode for now
-			{
-				gl_error("Newton-Raphson failed to converge the dynamic powerflow, sticking at same iteration.");
-				/*  TROUBLESHOOT
-				Newton-Raphson failed to converge the dynamic powerflow in the number of iterations
-				specified in NR_iteration_limit.  It will try again (if the global iteration limit
-				has not been reached).
-				*/
-
-				error_state = true;
-				break;
-			}
-
-			//Loop through the object list and call the updates - loop forward for SWING first, to replicate "postsync"-like order
-			for (curr_object_number=0; curr_object_number<pwr_object_count; curr_object_number++)
-			{
-				//See if we're in service or not
-				if ((delta_objects[curr_object_number]->in_svc_double <= gl_globaldeltaclock) && (delta_objects[curr_object_number]->out_svc_double >= gl_globaldeltaclock))
-				{
-					if (delta_functions[curr_object_number] != NULL)
-					{
-						//Call the actual function
-						function_status = ((SIMULATIONMODE (*)(OBJECT *, unsigned int64, unsigned long, unsigned int, bool))(*delta_functions[curr_object_number]))(delta_objects[curr_object_number],delta_time,dt,iteration_count_val,true);
-					}
-					else	//Doesn't have a function, either intentionally, or "lack of supportly"
-					{
-						function_status = SM_EVENT;	//No function present, just assume we only like events
-					}
-				}
-				else //Not in service - just pass
-					function_status = SM_EVENT;
-
-				//Determine what our return is
-				if (function_status == SM_DELTA)
-					event_driven = false;
-				else if (function_status == SM_DELTA_ITER)
-				{
-					event_driven = false;
-					delta_iter = true;
-				}
-				else if (function_status == SM_ERROR)
-				{
-					gl_error("Powerflow object:%s - deltamode function returned an error!",delta_objects[curr_object_number]->name);
-					/*  TROUBLESHOOT
-					While performing a deltamode update, one object returned an error code.  Check to see if the object itself provided
-					more details and try again.  If the error persists, please submit your code and a bug report via the trac website.
-					*/
-					error_state = true;
-					break;
-				}
-				//Default else, we're in SM_EVENT, so no flag change needed
-			}
-
-			//Check and see if we should even consider reiterating or not
-			if (pf_result < 0)
-			{
-				//Increment the iteration counter
-				simple_iter_test++;
-			}
-			else
-			{
-				break;	//Theoretically done
-			}
-		}//End iteration while
-
-		//See if we got out here due to an error
-		if (error_state == true)
-		{
-			return SM_ERROR;
-		}
-				
-		//Determine how to exit - event or delta driven
-		if (event_driven == false)
-		{
-			if (delta_iter == true)
-				return SM_DELTA_ITER;
-			else
-				return SM_DELTA;
-		}
-		else
-			return SM_EVENT;
-	}
-	else	//deltamode not desired
-	{
-		return SM_EVENT;	//Just event mode
-	}
+	return function_status;
 }
 
 //postupdate function of deltamode
