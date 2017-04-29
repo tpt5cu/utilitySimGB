@@ -187,6 +187,8 @@ public:
 	double get_Tambient(enumeration water_heater_location);		// ambient T [F] -- either an indoor house temperature or a garage temperature, probably...
 	typedef enum {MODEL_NOT_1ZONE=0, MODEL_NOT_2ZONE=1} WRONGMODEL;
 	void wrong_model(WRONGMODEL msg);
+
+	bool waterheater::sync_waterheater_subsecond(unsigned int64, unsigned long);
 };
 
 #endif

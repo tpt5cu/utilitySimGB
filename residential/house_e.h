@@ -440,6 +440,8 @@ public:
 	TIMESTAMP sync_thermostat(TIMESTAMP t0, TIMESTAMP t1);
 	TIMESTAMP sync_panel(TIMESTAMP t0, TIMESTAMP t1);
 	TIMESTAMP sync_enduses(TIMESTAMP t0, TIMESTAMP t1);
+	// update panel circuits for subsecond and return true if non-steady, false if steady
+	bool sync_panel_subsecond(unsigned int64, unsigned long);
 	void update_system(double dt=0);
 	void update_model(double dt=0);
 	void check_controls(void);

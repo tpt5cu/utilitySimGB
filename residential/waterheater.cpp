@@ -29,54 +29,7 @@
 
 #define TSTAT_PRECISION 0.01
 #define HEIGHT_PRECISION 0.01
-/*
-#define RUN_WH_FC FC_FUNC (run_wh, RUN_WH)
-#ifdef __cplusplus
-extern "C"  // prevent C++ name mangling
-#endif
-void RUN_WH_FC (
-        int *op_mode,
-        double *sim_time,
-        int *large_bins,
-        int *small_bins,
-        double *heater_h,
-		double *heater_D,
-        int *dr_signal,
-        double *sensor_pos,
-        double *heater_q,
-        double *heater_size,
-		double *heat_lost_rate,
-        double *water_rho,
-        double *water_k0,
-        double *water_alpha,
-        double *water_cv,
-        double *temp_amb,
-		double *hum_amb,
-        double *temp_in,
-        double *temp_set,
-        double *temp_db,
-        double *comp_power,
-        double *comp_off,
-		double *low_amb_lim,
-        double *up_amb_lim,
-        double *water_low_lim,
-        double *mode_3_off,
-        double *t_db,
-        double *t_wb,
-		double *upper_elem_off,
-        double *v_flow_threshold,
-        double *v_flow,
-        double *init_tank_temp,
-        double *lowerf,
-        double *upperf,
-		int *ncomp,
-        int *nheat,
-        int *heat_up,
-        double *ca,
-        double *power,
-        double *COP,
-        double *energy);
-*/
+
 //////////////////////////////////////////////////////////////////////////
 // waterheater CLASS FUNCTIONS
 //////////////////////////////////////////////////////////////////////////
@@ -216,6 +169,12 @@ int waterheater::create()
 	dr_signal = 1;
 	return res;
 
+}
+
+bool sync_waterheater_subsecond(OBJECT *obj, unsigned int64 delta_time, unsigned long dt)
+{
+	waterheater *my = OBJECTDATA(obj,waterheater);
+	return my->sync_waterheater_subsecond(delta_time,dt);
 }
 
 /** Initialize water heater model properties - randomized defaults for all published variables
@@ -493,119 +452,6 @@ int waterheater::init(OBJECT *parent)
 			break;
 	}
 
-	if(current_model == FORTRAN){
-		if(simulation_time <= 0){
-			GL_THROW("The simulation time for the fortran water heater model must be greater than 0.");
-		}
-		fwh_sim_time = gl_globalclock;
-		ncomp = 0;
-		nheat[0] = nheat[1] = 0;
-		heat_up = 0; /* false */
-		fwh_energy = 0.0;
-
-		if(tank_volume == 40){
-			thermal_conductivity = 1.80;
-			convective_coefficient = 0.0024;
-			water_density = 1000.0;
-			water_heat_capacity = 4181.3;
-			h = 1.1;
-			tank_diameter = 0.3568;
-			sensor_position[0] = 0.92;
-			sensor_position[1] = 0.4;
-			heater_element_power[0] = 4200.0;
-			heater_element_power[1] = 2000.0;
-			heater_size[0] = heater_size[1] = 0.01;
-			heater_element_position[0] = heater_element_position[1] = 0.2;
-			tank_heat_loss_rate = 3.5;
-			temp_set[0] = temp_set[1] = 51.37;
-			thermostat_deadband = 0.75;
-			inlet_water_flow_threshold = 0.0;
-			compressor_power_capacity = 750.0;
-			compressor_activation_temp_offset = 9.0;
-			lowest_ambient_temperature_limit = 45.0;
-			highest_ambient_temperature_limit = 109.0;
-			lowest_water_temperature_limit = 58.0;
-			activation_temperature_offset = 5.0;
-			ambient_air_dry_bulb_temp = 67.5; //not used
-			ambient_air_wet_bulb_temp = 57.0; //not used
-			upper_element_activation_temp_offset = 18.0;
-			upper_fraction = 0.83;
-			lower_fraction = 0.20;
-			coarse_tank_grid = 12;
-			fine_tank_grid = 12;
-		} else if(tank_volume == 80){
-			if(operating_mode == 3){//electric resistance wh
-				thermal_conductivity = 0.58;
-				convective_coefficient = 0.0024;
-				water_density = 1000;
-				water_heat_capacity = 4181.3;
-				h = 1.524;
-				tank_diameter = 0.508;
-				sensor_position[0] = 0.92;
-				sensor_position[1] = 0.4;
-				heater_element_power[0] = 3900.0;
-				heater_element_power[1] = 3900.0;
-				heater_size[0] = 0.01;
-				heater_size[1] = 0.01;
-				heater_element_position[0] = 1.143;
-				heater_element_position[1] = 0.254;
-				tank_heat_loss_rate = 3.35;
-				temp_set[0] = temp_set[1] = 51.67;
-				thermostat_deadband = 0.75;
-				inlet_water_flow_threshold = 0.0;
-				compressor_power_capacity = 750.0;
-				compressor_activation_temp_offset = 9.0;
-				lowest_ambient_temperature_limit = 45.0;
-				highest_ambient_temperature_limit = 109.0;
-				lowest_water_temperature_limit = 58.0;
-				activation_temperature_offset = 5.0;
-				ambient_air_dry_bulb_temp = 67.5; //not used
-				ambient_air_wet_bulb_temp = 57.0; //not used
-				upper_element_activation_temp_offset = 18.0;
-				upper_fraction = 0.83;
-				lower_fraction = 0.20;
-				coarse_tank_grid = 12;
-				fine_tank_grid = 12;
-			} else { //heat pump wh
-				thermal_conductivity = 0.58;
-				convective_coefficient = 0.0024;
-				water_density = 1000;
-				water_heat_capacity = 4181.3;
-				h = 1.4732;
-				tank_diameter = 0.5;
-				sensor_position[0] = 1.2277;
-				sensor_position[1] = 0.4911;
-				heater_element_power[0] = 4200.0;
-				heater_element_power[1] = 2000.0;
-				heater_size[0] = 0.0106;
-				heater_size[1] = 0.01;
-				heater_element_position[0] = heater_element_position[1] = 0.2;
-				tank_heat_loss_rate = 3.9;
-				temp_set[0] = temp_set[1] = 51.67;
-				thermostat_deadband = 2.25;
-				inlet_water_flow_threshold = 0.0;
-				compressor_power_capacity = 750.0;
-				compressor_activation_temp_offset = 9.0;
-				lowest_ambient_temperature_limit = 45.0;
-				highest_ambient_temperature_limit = 109.0;
-				lowest_water_temperature_limit = 58.0;
-				activation_temperature_offset = 5.0;
-				ambient_air_dry_bulb_temp = 67.5; //not used
-				ambient_air_wet_bulb_temp = 57.0; //not used
-				upper_element_activation_temp_offset = 18.0;
-				upper_fraction = 0.83;
-				lower_fraction = 0.20;
-				coarse_tank_grid = 12;
-				fine_tank_grid = 12;
-			}
-			for( int i = 0; i < coarse_tank_grid*fine_tank_grid; i++){
-				init_tank_temp[i] = (Tw - 32.0) * (5.0 / 9.0);
-				tank_water_temp[i] = init_tank_temp[i];
-			}
-		} else {
-			GL_THROW("Invalide tank volume for the fortran water heater_model. Valid volumes are 40 or 80 gallons.");
-		}
-	}
 	return residential_enduse::init(parent);
 }
 
@@ -623,16 +469,18 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 	switch(tank_status){
 		case FULL:
 			if(Tw-TSTAT_PRECISION < Ton){
+				// enable_subsecond_models = TRUE;
 				heat_needed = TRUE;
 			} else if (Tw+TSTAT_PRECISION > Toff){
 				heat_needed = FALSE;
 			} else {
-				; // no change
+				; // no change`
 			}
 			break;
 		case PARTIAL:
 			if (heat_mode == HEAT_PUMP) {
 				if(Tcontrol-TSTAT_PRECISION < Ton){
+					// enable_subsecond_models = TRUE;
 					heat_needed = TRUE;
 				} else if (Tcontrol+TSTAT_PRECISION > Toff){
 					heat_needed = FALSE;
@@ -640,10 +488,12 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 					; // no change
 				}
 			} else {
+				// enable_subsecond_models = TRUE;
 				heat_needed = TRUE; // if we aren't full, fill 'er up!
 			}
 			break;
 		case EMPTY:
+			// enable_subsecond_models = TRUE;
 			heat_needed = TRUE; // if we aren't full, fill 'er up!
 			break;
 		default:
@@ -651,6 +501,15 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 	}
 	//return TS_NEVER; // this thermostat is purely reactive and will never drive the system
 }
+
+// update panel circuits for subsecond and return true if non-steady, false if steady
+bool waterheater::sync_waterheater_subsecond(unsigned int64, unsigned long)
+{
+	OBJECT *obj = OBJECTHDR(this);
+	total.total = total.power = total.current = total.admittance = complex(0,0);
+	return false;
+}
+
 
 /** Water heater plc control code to set the water heater 'heat_needed' state
 	The thermostat set point, deadband, tank state(height of hot water column) and 
@@ -830,48 +689,7 @@ TIMESTAMP waterheater::sync(TIMESTAMP t0, TIMESTAMP t1)
 				}
 				load.heatgain = internal_gain;
 			}
-           /* RUN_WH_FC(
-                    &op_mode,
-                    &sim_time,
-                    &coarse_tank_grid,
-					&fine_tank_grid,
-                    &h,
-                    &tank_diameter,
-                    &dr_sig,
-					sensor_position,
-                    heater_element_power,
-                    heater_size,
-					&tank_heat_loss_rate,
-                    &water_density,
-                    &thermal_conductivity,
-					&convective_coefficient,
-                    &water_heat_capacity,
-                    &ambient_temp,
-                    &ambient_rh,
-					&t_in,
-                    temp_set,
-                    &thermostat_deadband,
-                    &compressor_power_capacity,
-					&compressor_activation_temp_offset,
-                    &lowest_ambient_temperature_limit,
-					&highest_ambient_temperature_limit,
-                    &lowest_water_temperature_limit,
-					&activation_temperature_offset,
-                    &ambient_air_dry_bulb_temp,
-                    &ambient_air_wet_bulb_temp,
-					&upper_element_activation_temp_offset,
-                    &inlet_water_flow_threshold,
-                    &water_demand,
-					init_tank_temp,
-                    &lower_fraction,
-                    &upper_fraction,
-                    &ncomp,
-					nheat,
-                    &heat_up,
-                    tank_water_temp,
-                    &fwh_power,
-					&fwh_cop,
-					&fwh_energy);*/
+
             load.total = complex(fwh_energy/(1000*simulation_time), 0);
             fwh_energy = 0;
 			fwh_sim_time = t1+ (TIMESTAMP)simulation_time;

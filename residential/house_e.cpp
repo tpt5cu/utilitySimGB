@@ -1192,7 +1192,11 @@ void house_e::set_window_Rvalue(){
 /** Map circuit variables to meter.  Initalize house_e and HVAC model properties,
 and internal gain variables.
 **/
-
+bool sync_panel_subsecond(OBJECT *obj, unsigned int64 delta_time, unsigned long dt)
+{
+	house_e *my = OBJECTDATA(obj,house_e);
+	return my->sync_panel_subsecond(delta_time,dt);
+}
 int house_e::init(OBJECT *parent)
 {
 	if(parent != NULL){
@@ -1611,6 +1615,7 @@ int house_e::init(OBJECT *parent)
 		fan_heatgain_fraction = 0;
 	}
 
+	add_subsecond_sync(sync_panel_subsecond,obj);
 	return 1;
 }
 
@@ -2819,6 +2824,55 @@ TIMESTAMP house_e::sync_thermostat(TIMESTAMP t0, TIMESTAMP t1)
 	return TS_NEVER;
 }
 
+// update panel circuits for subsecond and return true if non-steady, false if steady
+bool house_e::sync_panel_subsecond(unsigned int64, unsigned long)
+{
+	OBJECT *obj = OBJECTHDR(this);
+	total.total = total.power = total.current = total.admittance = complex(0,0);
+	CIRCUIT *c;
+	for (c=panel.circuits; c!=NULL; c=c->next)
+	{
+		int n = (int)c->type;
+		if (n==0)	//1-2 240 V load
+		{
+			load_values[0][2] += c->pLoad->power * 1000.0;
+			load_values[1][2] += ~(c->pLoad->current * 1000.0 / 240.0);
+			load_values[2][2] += ~(c->pLoad->admittance * 1000.0 / (240.0 * 240.0));
+		}
+		else if (n==1)	//2-N 120 V load
+		{
+			load_values[0][1] += c->pLoad->power * 1000.0;
+			load_values[1][1] += ~(c->pLoad->current * 1000.0 / 120.0);
+			load_values[2][1] += ~(c->pLoad->admittance * 1000.0 / (120.0 * 120.0));
+		}
+		else	//n has to equal 2 here (checked above) - 1-N 120 V load
+		{
+			load_values[0][0] += c->pLoad->power * 1000.0;
+			load_values[1][0] += ~(c->pLoad->current * 1000.0 / 120.0);
+			load_values[2][0] += ~(c->pLoad->admittance * 1000.0 / (120.0 * 120.0));
+		}
+
+		total.total += c->pLoad->total;
+		total.power += c->pLoad->power;
+		total.current += c->pLoad->current;
+		total.admittance += c->pLoad->admittance;
+	}
+	total_load = total.total.Mag();
+
+	pPower[0] += load_values[0][0];
+	pPower[1] += load_values[0][1];
+	pPower[2] += load_values[0][2];
+
+	pLine_I[0] += load_values[1][0];
+	pLine_I[1] += load_values[1][1];
+	pLine_I[2] += load_values[1][2];
+
+	pShunt[0] += load_values[2][0];
+	pShunt[1] += load_values[2][1];
+	pShunt[2] += load_values[2][2];
+	return false;
+}
+
 TIMESTAMP house_e::sync_panel(TIMESTAMP t0, TIMESTAMP t1)
 {
 	TIMESTAMP t2 = TS_NEVER;
@@ -2902,6 +2956,8 @@ TIMESTAMP house_e::sync_panel(TIMESTAMP t0, TIMESTAMP t1)
 				//Convert values appropriately - assume nominal voltages of 240 and 120 (0 degrees)
 				//All values are given in kW, so convert to normal
 
+
+/// need to update
 				if (n==0)	//1-2 240 V load
 				{
 					load_values[0][2] += c->pLoad->power * 1000.0;
@@ -2934,6 +2990,7 @@ TIMESTAMP house_e::sync_panel(TIMESTAMP t0, TIMESTAMP t1)
 				}
 				c->reclose = TS_NEVER;
 			}
+/// need to update
 		}
 
 		// sync time
@@ -2949,6 +3006,8 @@ TIMESTAMP house_e::sync_panel(TIMESTAMP t0, TIMESTAMP t1)
 	// compute line currents and post to meter
 	if (obj->parent != NULL)
 		wlock(obj->parent);
+
+/// need to update
 
 	//Post accumulations up to parent meter/node
 	//Update power
@@ -2967,6 +3026,7 @@ TIMESTAMP house_e::sync_panel(TIMESTAMP t0, TIMESTAMP t1)
 	pShunt[1] += load_values[2][1];
 	pShunt[2] += load_values[2][2];
 
+/// need to update
 	if (obj->parent != NULL)
 		wunlock(obj->parent);
 
