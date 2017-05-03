@@ -1195,7 +1195,7 @@ and internal gain variables.
 bool sync_panel_subsecond(OBJECT *obj, unsigned int64 delta_time, unsigned long dt)
 {
 	house_e *my = OBJECTDATA(obj,house_e);
-	return my->sync_panel_subsecond(delta_time,dt);
+	return my->sync_local_panel_subsecond(delta_time,dt);
 }
 
 int house_e::init(OBJECT *parent)
@@ -1616,7 +1616,7 @@ int house_e::init(OBJECT *parent)
 		fan_heatgain_fraction = 0;
 	}
 
-	add_subsecond_call(sync_panel_subsecond,obj);
+	add_subsecond_call(&sync_panel_subsecond,obj);
 	return 1;
 }
 
@@ -2826,7 +2826,7 @@ TIMESTAMP house_e::sync_thermostat(TIMESTAMP t0, TIMESTAMP t1)
 }
 
 // update panel circuits for subsecond and return true if non-steady, false if steady
-bool house_e::sync_panel_subsecond(unsigned int64, unsigned long)
+bool house_e::sync_local_panel_subsecond(unsigned int64, unsigned long)
 {
 	OBJECT *obj = OBJECTHDR(this);
 	total.total = total.power = total.current = total.admittance = complex(0,0);

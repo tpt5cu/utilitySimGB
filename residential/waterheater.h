@@ -96,6 +96,7 @@ public:
 	double actual_voltage;
 	double prev_load;
 	complex waterheater_actual_power;	///< the actual power draw of the object after accounting for voltage
+	double average_freq;
 //	Fortran water heater parameters
 public:
 	double dr_signal;				//dr_signal

@@ -26,6 +26,7 @@
 
 #include "house_a.h"
 #include "waterheater.h"
+#include "../powerflow/node.h"
 
 #define TSTAT_PRECISION 0.01
 #define HEIGHT_PRECISION 0.01
@@ -103,6 +104,8 @@ waterheater::waterheater(MODULE *module) : residential_enduse(module){
 				PT_KEYWORD,"OV_ON",(enumeration)OV_ON,
 				PT_KEYWORD,"OV_NORMAL",(enumeration)OV_NORMAL,
 				PT_KEYWORD,"OV_OFF",(enumeration)OV_OFF,
+				// output frquency variable
+				PT_double,"measured_frequency[Hz]", PADDR(average_freq), PT_DESCRIPTION, "frequency measurement - average of present phases",
 			NULL)<1) 
 			GL_THROW("unable to publish properties in %s",__FILE__);
 	}
@@ -502,12 +505,12 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 	//return TS_NEVER; // this thermostat is purely reactive and will never drive the system
 }
 
-// update panel circuits for subsecond and return true if non-steady, false if steady
-bool waterheater::sync_waterheater_subsecond(unsigned int64, unsigned long)
+// update waterheater for subsecond and return true if non-steady, false if steady
+bool waterheater::sync_waterheater_subsecond(unsigned int64 dtstart, unsigned long dtstep)
 {
 	OBJECT *obj = OBJECTHDR(this);
-	total.total = total.power = total.current = total.admittance = complex(0,0);
-	return false;
+	//total.total = total.power = total.current = total.admittance = complex(0,0);
+	return dtstart+10*dtstep < 0;
 }
 
 
@@ -746,7 +749,15 @@ TIMESTAMP waterheater::sync(TIMESTAMP t0, TIMESTAMP t1)
 			return t2;
 		}
 	}
-}
+	
+	OBJECT *my = OBJECTHDR(this);
+
+	if(node * this_node = OBJECTDATA(my->parent->parent,node)){
+		// get average frequency data from node object
+		average_freq = this_node->frequency;
+	}
+	
+}	
 
 TIMESTAMP waterheater::postsync(TIMESTAMP t0, TIMESTAMP t1){
 	return TS_NEVER;

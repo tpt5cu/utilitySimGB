@@ -43,6 +43,10 @@ double default_outdoor_temperature = 74.0;
 double default_humidity = 75.0;
 double default_solar[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 int64 default_etp_iterations = 100;
+bool enable_subsecond_models = false;
+double deltamode_timestep_publish = 1e8;
+double deltamode_timestep = 1e8;
+int64 deltamode_starttime = 0;
 
 EXPORT CLASS *init(CALLBACKS *fntable, MODULE *module, int argc, char *argv[])
 {
@@ -176,23 +180,15 @@ EXPORT unsigned long preupdate(MODULE *module, TIMESTAMP t0, unsigned int64 dt)
 }
 
 
-typedef bool (*SUBSECONDCALL)(unsigned int64,unsigned long);
-
-typedef struct s_subsecond_call {
-	SUBSECONDCALL call;
-	OBJECT *obj;
-	struct s_subsecond_call *next;
-} SUBSECONDCALLLIST;
-
 static SUBSECONDCALLLIST *calllist = NULL;
 
-void add_subsecond_call(SUBSECONDCALL *call, OBJECT *obj)
+void add_subsecond_call(SUBSECONDCALL call, OBJECT *obj)
 {
 	SUBSECONDCALLLIST *item = (SUBSECONDCALLLIST*)malloc(sizeof(SUBSECONDCALLLIST));
 	item->call = call;
 	item->obj = obj;
 	item->next = calllist;
-	callist = item;
+	calllist = item;
 }
 
 //interupdate function of deltamode
@@ -202,9 +198,9 @@ void add_subsecond_call(SUBSECONDCALL *call, OBJECT *obj)
 EXPORT SIMULATIONMODE interupdate(MODULE *module, TIMESTAMP t0, unsigned int64 delta_time, unsigned long dt, unsigned int iteration_count_val)
 {
 	SIMULATIONMODE function_status = SM_EVENT;
-	for ( SUBSECONDCALL *item = calllist ; item != NULL ; item=item->next )
+	for ( SUBSECONDCALLLIST *item = calllist ; item != NULL ; item=item->next )
 	{
-		if ( item->call(item->obj,delta_time,dt) )
+		if ( item->call!=NULL && (item->call)(item->obj,delta_time,dt) )
 			function_status = SM_DELTA;
 	}
 	return function_status;
@@ -218,11 +214,7 @@ EXPORT STATUS postupdate(MODULE *module, TIMESTAMP t0, unsigned int64 dt)
 	if (enable_subsecond_models == true)
 	{
 		//Final item of transitioning out is resetting the next timestep so a smaller one can take its place
-		deltamode_starttime = TS_NEVER;
-
-		//Deflag the timestep variable as well
-		deltatimestep_running = -1.0;
-		
+		deltamode_starttime = TS_NEVER;	
 		return SUCCESS;
 	}
 	else	//Deltamode not wanted, just "succeed"

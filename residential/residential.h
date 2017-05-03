@@ -8,6 +8,7 @@
 
 #include "gridlabd.h"
 #include "module.h"
+// #include "powerflow.h"
 
 /* useful constants */
 #define RHOWATER	(62.4)			// lb/cf
@@ -64,6 +65,16 @@ typedef struct s_panel {
 typedef	CIRCUIT *(*ATTACHFUNCTION)(OBJECT *, enduse *, double , int is220); ///< type definition for attach function
 
 typedef enum {HORIZONTAL, NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST, NORTH_WEST,N_SOLAR_SURFACES} ORIENTATION;
+
+typedef bool (*SUBSECONDCALL)(OBJECT*,unsigned int64,unsigned long);
+
+typedef struct s_subsecond_call {
+	SUBSECONDCALL call;
+	OBJECT *obj;
+	struct s_subsecond_call *next;
+} SUBSECONDCALLLIST;
+
+void add_subsecond_call(SUBSECONDCALL call, OBJECT *obj);
 
 #endif  /* _RESIDENTIAL_H */
 
