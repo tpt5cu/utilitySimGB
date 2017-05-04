@@ -96,7 +96,11 @@ public:
 	double actual_voltage;
 	double prev_load;
 	complex waterheater_actual_power;	///< the actual power draw of the object after accounting for voltage
-	double average_freq;
+	// frequency related
+	double measured_frequency;
+	bool gridBallast_control_enable = false;
+	double lower_frequency;
+	double higher_frequency;
 //	Fortran water heater parameters
 public:
 	double dr_signal;				//dr_signal

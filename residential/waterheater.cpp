@@ -104,8 +104,11 @@ waterheater::waterheater(MODULE *module) : residential_enduse(module){
 				PT_KEYWORD,"OV_ON",(enumeration)OV_ON,
 				PT_KEYWORD,"OV_NORMAL",(enumeration)OV_NORMAL,
 				PT_KEYWORD,"OV_OFF",(enumeration)OV_OFF,
-				// output frquency variable
-				PT_double,"measured_frequency[Hz]", PADDR(average_freq), PT_DESCRIPTION, "frequency measurement - average of present phases",
+				// frquency variables
+				PT_double,"measured_frequency[Hz]", PADDR(measured_frequency), PT_DESCRIPTION, "frequency measurement - average of present phases",
+				PT_bool, "gridBallast_control_enable", PADDR(gridBallast_control_enable), PT_DESCRIPTION, "Disable/Enable GridBallast controller",
+				PT_double,"lower_frequency[Hz]", PADDR(lower_frequency), PT_DESCRIPTION, "lower frequency for GridBallast control",
+				PT_double,"higher_frequency[Hz]", PADDR(higher_frequency), PT_DESCRIPTION, "higher frequency for GridBallast control",
 			NULL)<1) 
 			GL_THROW("unable to publish properties in %s",__FILE__);
 	}
@@ -135,6 +138,9 @@ int waterheater::create()
 	is_waterheater_on = 0;
 //	power_kw = complex(0,0);
 	Tw = 0.0;
+
+	lower_frequency = 59.9;
+	higher_frequency = 60.1;
 
 	// location...mostly in garage, a few inside...
 	location = gl_random_bernoulli(RNGSTATE,0.80) ? GARAGE : INSIDE;
@@ -473,11 +479,16 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 		case FULL:
 			if(Tw-TSTAT_PRECISION < Ton){
 				// enable_subsecond_models = TRUE;
-				heat_needed = TRUE;
+					heat_needed = TRUE;
 			} else if (Tw+TSTAT_PRECISION > Toff){
 				heat_needed = FALSE;
 			} else {
-				; // no change`
+				// no change unless the gridBallast controller is enabled
+				if(gridBallast_control_enable && measured_frequency < lower_frequency){
+					heat_needed = TRUE;
+				} else if(gridBallast_control_enable && measured_frequency > higher_frequency){
+					heat_needed = FALSE;
+				}
 			}
 			break;
 		case PARTIAL:
@@ -488,7 +499,12 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 				} else if (Tcontrol+TSTAT_PRECISION > Toff){
 					heat_needed = FALSE;
 				} else {
-					; // no change
+					// no change unless the gridBallast controller is enabled
+					if(gridBallast_control_enable && measured_frequency < lower_frequency){
+						heat_needed = TRUE;
+					} else if(gridBallast_control_enable && measured_frequency > higher_frequency){
+						heat_needed = FALSE;
+					}				
 				}
 			} else {
 				// enable_subsecond_models = TRUE;
@@ -752,10 +768,23 @@ TIMESTAMP waterheater::sync(TIMESTAMP t0, TIMESTAMP t1)
 	
 	OBJECT *my = OBJECTHDR(this);
 
-	if(node * this_node = OBJECTDATA(my->parent->parent,node)){
-		// get average frequency data from node object
-		average_freq = this_node->frequency;
+	if(node * this_node = OBJECTDATA(my->parent->parent,node))
+	{
+		if ( this_node->isa("node") )
+			// get average frequency data from node object
+			measured_frequency = this_node->frequency;
+		else
+		{
+			static bool first = true;
+			if ( first )
+			{
+				gl_error("grandparent object of %s is not a node",my->name?my->name:"(unknown)");
+				first = false;
+			}
+		}
 	}
+	else
+		gl_warning("grandparent object of %s is not found",my->name?my->name:"(unknown)");
 	
 }	
 
