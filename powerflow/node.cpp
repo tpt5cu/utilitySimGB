@@ -234,7 +234,9 @@ int node::create(void)
 	reference_bus = NULL;
 	nominal_voltage = 0.0;
 	maximum_voltage_error = 0.0;
-	frequency = nominal_frequency;
+	// force to be 60, and see if waterheater can access it
+	frequency = 60.0;
+	// frequency = nominal_frequency; 
 	fault_Z = 1e-6;
 	prev_NTime = 0;
 	SubNode = NONE;
