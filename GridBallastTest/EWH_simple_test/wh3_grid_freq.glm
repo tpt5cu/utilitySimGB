@@ -79,11 +79,6 @@ module powerflow {
 object triplex_meter {
     phases AS;
     nominal_voltage 120 V;
-    //frequency 60 Hz;
-    //object player {
-    //    file frequency.PLAYER;
-    //    property measured_frequency;
-    //};
     object house {
         object waterheater {
             name wh2;
@@ -91,8 +86,15 @@ object triplex_meter {
             tank_UA 2;
             tank_diameter 2.12;
             heating_element_capacity 5.6;
-            inlet_water_temperature 50;
+            inlet_water_temperature 65;
             water_demand daily_use*1;
+            object player {
+                file frequency.PLAYER;
+                property measured_frequency;
+            };
+            enable_freq_control true;
+            freq_lowlimit 59.97;
+            freq_uplimit 60.03;
             heat_mode ELECTRIC;
             location INSIDE;
             tank_setpoint 130;
@@ -105,9 +107,9 @@ object triplex_meter {
             object recorder {
                 // in '2012-04-01 00:00:00';
                 // out '2012-05-01 00:00:00';
-                property inlet_water_temperature,measured_frequency,temperature,actual_load,actual_power,is_waterheater_on,gas_fan_power,gas_standby_power,energy,power,peak_demand,heatgain,power_state;
+                property measured_frequency,temperature,power,energy,actual_load,actual_power,peak_demand,is_waterheater_on,water_demand,current_tank_status,waterheater_model,heatgain,power_state;
                 interval ${INTERVAL};
-                file "waterheater-${INTERVAL}.csv";
+                file "waterheater_fcontrol_${INTERVAL}_3.csv";
             };
         };
     };

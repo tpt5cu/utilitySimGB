@@ -26,7 +26,7 @@
 
 #include "house_a.h"
 #include "waterheater.h"
-#include "../powerflow/node.h"
+
 
 #define TSTAT_PRECISION 0.01
 #define HEIGHT_PRECISION 0.01
@@ -106,10 +106,10 @@ waterheater::waterheater(MODULE *module) : residential_enduse(module){
 				PT_KEYWORD,"OV_OFF",(enumeration)OV_OFF,
 				// frquency variables
 				PT_double,"measured_frequency[Hz]", PADDR(measured_frequency), PT_DESCRIPTION, "frequency measurement - average of present phases",
-				PT_bool, "gridBallast_control_enable", PADDR(gridBallast_control_enable), PT_DESCRIPTION, "Disable/Enable GridBallast controller",
-				PT_double,"lower_frequency[Hz]", PADDR(lower_frequency), PT_DESCRIPTION, "lower frequency for GridBallast control",
-				PT_double,"higher_frequency[Hz]", PADDR(higher_frequency), PT_DESCRIPTION, "higher frequency for GridBallast control",
-			NULL)<1) 
+				PT_bool, "enable_freq_control", PADDR(enable_freq_control), PT_DESCRIPTION, "Disable/Enable GridBallast controller based on Grid Frequency",
+				PT_double,"freq_lowlimit[Hz]", PADDR(freq_lowlimit), PT_DESCRIPTION, "lower frequency limit for GridBallast control",
+				PT_double,"freq_uplimit[Hz]", PADDR(freq_uplimit), PT_DESCRIPTION, "higher frequency limit for GridBallast control",
+			NULL)<1)
 			GL_THROW("unable to publish properties in %s",__FILE__);
 	}
 }
@@ -139,8 +139,12 @@ int waterheater::create()
 //	power_kw = complex(0,0);
 	Tw = 0.0;
 
-	lower_frequency = 59.9;
-	higher_frequency = 60.1;
+	// initialize controller related variables
+	measured_frequency = 60;
+	freq_lowlimit = 59.95;
+	freq_uplimit = 60.05;
+	circuit_status = false;
+	enable_freq_control = false;
 
 	// location...mostly in garage, a few inside...
 	location = gl_random_bernoulli(RNGSTATE,0.80) ? GARAGE : INSIDE;
@@ -461,6 +465,10 @@ int waterheater::init(OBJECT *parent)
 			break;
 	}
 
+	/* initialize the GridBallast controller */
+
+	gbcontroller.set_parameters(freq_lowlimit,freq_uplimit,tank_setpoint,thermostat_deadband);
+
 	return residential_enduse::init(parent);
 }
 
@@ -477,19 +485,35 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 	enumeration tank_status = tank_state();
 	switch(tank_status){
 		case FULL:
+			// gl_verbose("T_setpoint:",tank_setpoint,"\n T_deadband:",thermostat_deadband);
+//			static bool first = true;
+//			if (first){
+//				gl_verbose("T_setpoint:",T_setpoint,"\n T_deadband:",T_deadband);
+//				gl_output("T_setpoint:%.2f",tank_setpoint);
+//				gl_output("\n T_deadband:%.2f",thermostat_deadband);
+//				first = false;
+//			}
+
+			circuit_status = heat_needed;
+			circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
+			heat_needed = circuit_status;
+			/*
+
 			if(Tw-TSTAT_PRECISION < Ton){
 				// enable_subsecond_models = TRUE;
-					heat_needed = TRUE;
+				heat_needed = TRUE;
 			} else if (Tw+TSTAT_PRECISION > Toff){
 				heat_needed = FALSE;
 			} else {
 				// no change unless the gridBallast controller is enabled
-				if(gridBallast_control_enable && measured_frequency < lower_frequency){
+				if(enable_freq_control && measured_frequency < freq_lowlimit){
 					heat_needed = TRUE;
-				} else if(gridBallast_control_enable && measured_frequency > higher_frequency){
+				} else if(enable_freq_control && measured_frequency > freq_uplimit){
 					heat_needed = FALSE;
 				}
+
 			}
+//			*/
 			break;
 		case PARTIAL:
 			if (heat_mode == HEAT_PUMP) {
@@ -500,11 +524,16 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 					heat_needed = FALSE;
 				} else {
 					// no change unless the gridBallast controller is enabled
+					circuit_status = heat_needed;
+					circuit_status = gbcontroller.frequency_controller(Tw, circuit_status, false,false,false);
+					heat_needed = circuit_status;
+					/*
 					if(gridBallast_control_enable && measured_frequency < lower_frequency){
 						heat_needed = TRUE;
 					} else if(gridBallast_control_enable && measured_frequency > higher_frequency){
 						heat_needed = FALSE;
-					}				
+					}
+					*/
 				}
 			} else {
 				// enable_subsecond_models = TRUE;
@@ -772,7 +801,7 @@ TIMESTAMP waterheater::sync(TIMESTAMP t0, TIMESTAMP t1)
 	{
 		if ( this_node->isa("node") )
 			// get average frequency data from node object
-			measured_frequency = this_node->frequency;
+			main_frequency = this_node->frequency;
 		else
 		{
 			static bool first = true;

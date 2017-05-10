@@ -13,6 +13,9 @@
 #include "residential.h"
 #include "residential_enduse.h"
 
+#include "../powerflow/node.h"
+#include "gridballastcontroller.h"
+
 class waterheater : public residential_enduse {
 private:
 	double standby_load;	///< typical power loss through thermal jacket losses (UA 2, 60 to 140 degF, 160 BTU/hr, 47W, 411kWh/year, ~10% energy star guesstimate)
@@ -96,11 +99,30 @@ public:
 	double actual_voltage;
 	double prev_load;
 	complex waterheater_actual_power;	///< the actual power draw of the object after accounting for voltage
-	// frequency related
-	double measured_frequency;
-	bool gridBallast_control_enable = false;
-	double lower_frequency;
-	double higher_frequency;
+
+	// frequency control variables
+	double main_frequency;			// grid frequency accessed from the parent triplex node
+	double measured_frequency; 		// grid frequency from measurement at each time t
+	double freq_lowlimit;			// lower tripping limit of the frequency
+	double freq_uplimit;			// upper tripping limit of the frequency
+	// we use this variable to toggle with/without frequency control
+	bool enable_freq_control;
+
+	bool circuit_status;			// True - ON; False - OFF, the returned variable to decide ON/OFF status
+
+	// force the circuit to be ON/OFF, we don't need it here
+	bool enable_lock;
+	bool force_OFF;
+	bool force_ON;
+
+	// if True, we let the circuit ON when T_t < lower thermal band,
+	// and let the circuit OFF when T_t > upper thermal band (for water heater)
+	// if False, it is the other way around (for refrigerator, e.g.)
+	bool reverse_ON_OFF;
+
+	// define the controller
+	gridballastcontroller::gridballastcontroller gbcontroller;
+
 //	Fortran water heater parameters
 public:
 	double dr_signal;				//dr_signal

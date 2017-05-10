@@ -33,6 +33,9 @@
 #include "residential_enduse.h"
 #include "house_e.h"
 
+#include "gridballastcontroller.h"
+
+
 complex default_line_voltage[3] = {complex(240,0,A),complex(120,0,A),complex(120,0,A)};
 complex default_line_current[3] = {complex(0,0,J),complex(0,0,J),complex(0,0,J)};
 complex default_line_shunt[3] = {complex(0,0,J),complex(0,0,J),complex(0,0,J)};
@@ -45,7 +48,7 @@ double default_solar[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 int64 default_etp_iterations = 100;
 bool enable_subsecond_models = false;
 double deltamode_timestep_publish = 1e8;
-double deltamode_timestep = 1e8;
+// double deltamode_timestep = 1e8;
 int64 deltamode_starttime = 0;
 
 EXPORT CLASS *init(CALLBACKS *fntable, MODULE *module, int argc, char *argv[])
@@ -167,10 +170,10 @@ EXPORT unsigned long preupdate(MODULE *module, TIMESTAMP t0, unsigned int64 dt)
 		{
 			//Cast in the published value
 			// ?? why +0.5 ??
-			deltamode_timestep = (unsigned long)(deltamode_timestep_publish+0.5);
+			deltamode_timestep_publish = (unsigned long)(deltamode_timestep_publish+0.5);
 
 			//Return it
-			return deltamode_timestep;
+			return deltamode_timestep_publish;
 		}
 	}
 	else	//Not desired, just return an arbitrarily large value
