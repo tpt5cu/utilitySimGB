@@ -529,19 +529,19 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 					first = false;
 				}
 				*/
-				// we have a different logic when the jitter is enabled, we first check thermal band, then the frequency band, then the jitter_counter
+				// we have a different logic when the jitter is enabled: we first check thermal deadband, then the frequency deadband, then the jitter_counter
 				// when enable_jitter is true, enable_freq_control is always true.
-				// if thermal band is violated, we give highest priority to that
+				// if thermal deadband is exceeded, we give highest priority to responding to this violation 
 				if (gbcontroller.check_thermal_violation(Tw)) {
 					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
 				} else {
-					// then the temp is within the thermal band, we can turn ON/OFF circuit without affecting occupants' comforts
-					// check if the frequency band is violated, if violated, we start a counter to delay the action; otherwise do nothing
+					// then the temp is within the thermal deadband, we can turn ON/OFF circuit without affecting the quality of service delivered by the load 
+					// check if the frequency deadband is violated, if violated, we start a counter to delay the action; otherwise do nothing
 					if (gbcontroller.check_freq_violation(measured_frequency)){
 						// the expected status due to the frequency control
 						temp_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
-						// if jitter_counter=0, meaning it is either the first time, let circuit_status=previous states
-						// or the jitter_count has finished, we let circuite_status = circuit_status_after_delay
+						// if jitter_counter==0, it is either the first time (in which ase let circuit_status=previous states)
+						// or the jitter_count has finished, so we let circuite_status = circuit_status_after_delay
 						// then we initialize jitter_counter, let circuit_status_after_delay=temp_status
 						// if jitter_counter >0,  we subtract 1, and use the status assuming frequency control is disabled
 						if (jitter_counter == 0){
