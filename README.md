@@ -1,9 +1,13 @@
-Please refer to direcotry *GridBallastTest/controller_example/* for specific examples of how to add controller to the water heaters, and how to use the binary gridlabd.bin in MAC OS.
+Please refer to directory 
+
+*GridBallastTest/controller_example/* 
+
+for specific examples of how to add controller to the water heaters using .glm files, and how to use the binary gridlabd.bin in MAC OS.
 
 If the binary version is not working, you can always compile the gridlabd from the source by following the commands below.
 
 
-'''{bash}
+```{bash}
 cd ~
 git clone -b feature/730 https://github.com/jingkungao/gridlab-d.git
 cd gridlab-d
@@ -20,5 +24,4 @@ autoreconf -isf
 ./configure prefix='/tmp/temp'
 make
 make install
-'''
-
+```
