@@ -251,7 +251,7 @@ as_unset=as_fn_unset
 ## -------------------- ##
 
 
-prefix="/Users/jingkungao/Documents/Software/gridlab-d/develop/7/local_gd"
+prefix="/Users/jingkungao/Documents/Software/gridlab-d/develop/7/gridlab-d/GridBallastTest/controller_example/local_gd"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
 datarootdir="${prefix}/share"

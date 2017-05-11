@@ -109,6 +109,8 @@ waterheater::waterheater(MODULE *module) : residential_enduse(module){
 				PT_bool, "enable_freq_control", PADDR(enable_freq_control), PT_DESCRIPTION, "Disable/Enable GridBallast controller based on Grid Frequency",
 				PT_double,"freq_lowlimit[Hz]", PADDR(freq_lowlimit), PT_DESCRIPTION, "lower frequency limit for GridBallast control",
 				PT_double,"freq_uplimit[Hz]", PADDR(freq_uplimit), PT_DESCRIPTION, "higher frequency limit for GridBallast control",
+				PT_bool, "enable_jitter", PADDR(enable_jitter), PT_DESCRIPTION, "Disable/Enable jitter to allow dealy for the controller",
+				PT_double,"average_delay_time[s]", PADDR(average_delay_time), PT_DESCRIPTION, "average delay time for the jitter in seconds, used as an input parameter to Poisson Process",
 			NULL)<1)
 			GL_THROW("unable to publish properties in %s",__FILE__);
 	}
@@ -145,6 +147,13 @@ int waterheater::create()
 	freq_uplimit = 60.05;
 	circuit_status = false;
 	enable_freq_control = false;
+
+	// initialize jitter related variables
+	enable_jitter = false;
+	average_delay_time = 120;			// 2min, average delay time during frequency violation
+	jitter_counter = 0; 				// start with 0, initilize using Poisson Process after event triggered
+	circuit_status_after_delay = false;
+	temp_status = false;
 
 	// location...mostly in garage, a few inside...
 	location = gl_random_bernoulli(RNGSTATE,0.80) ? GARAGE : INSIDE;
@@ -469,6 +478,14 @@ int waterheater::init(OBJECT *parent)
 
 	gbcontroller.set_parameters(freq_lowlimit,freq_uplimit,tank_setpoint,thermostat_deadband);
 
+	/* initialize the poission generator
+	 * The gridlab.h doesn't have a random poission generator, we use the standard one from c++ library
+	 * However, it is not working, we use uniform distribution later instead.
+	 */
+
+//	distribution(average_delay_time);
+
+
 	return residential_enduse::init(parent);
 }
 
@@ -493,10 +510,90 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 //				gl_output("\n T_deadband:%.2f",thermostat_deadband);
 //				first = false;
 //			}
+			static bool first = true;
+			static bool debug_f = true;
+
+
 
 			circuit_status = heat_needed;
-			circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
+			if (!enable_jitter) {
+				// if jitter is not enabled, we simply call the controller function
+				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
+			} else {
+				/* debug info
+				if (debug_f){
+					gl_output("T_setpoint:%.2f",tank_setpoint);
+					gl_output("\n T_deadband:%.2f",thermostat_deadband);
+					gl_output("Tw:%.2f, thermal_violation:%d, f_violation:%d",Tw,gbcontroller.check_thermal_violation(Tw),gbcontroller.check_freq_violation(measured_frequency));
+					gl_output("circuit_status:%d",circuit_status);
+					first = false;
+				}
+				*/
+				// we have a different logic when the jitter is enabled, we first check thermal band, then the frequency band, then the jitter_counter
+				// when enable_jitter is true, enable_freq_control is always true.
+				// if thermal band is violated, we give highest priority to that
+				if (gbcontroller.check_thermal_violation(Tw)) {
+					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
+				} else {
+					// then the temp is within the thermal band, we can turn ON/OFF circuit without affecting occupants' comforts
+					// check if the frequency band is violated, if violated, we start a counter to delay the action; otherwise do nothing
+					if (gbcontroller.check_freq_violation(measured_frequency)){
+						// the expected status due to the frequency control
+						temp_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
+						// if jitter_counter=0, meaning it is either the first time, let circuit_status=previous states
+						// or the jitter_count has finished, we let circuite_status = circuit_status_after_delay
+						// then we initialize jitter_counter, let circuit_status_after_delay=temp_status
+						// if jitter_counter >0,  we subtract 1, and use the status assuming frequency control is disabled
+						if (jitter_counter == 0){
+							if (first){
+								circuit_status = heat_needed;
+								first = false;
+							} else{
+								circuit_status = circuit_status_after_delay;
+							}
+							jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
+							circuit_status_after_delay = temp_status;
+						} else if (jitter_counter > 0) {
+							jitter_counter -= 1;
+							circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency);
+						}
+					}
+				}
+			}
+
 			heat_needed = circuit_status;
+			/*
+			// check enable_freq and enable_jitter
+			if (enable_freq_control && enable_jitter ) {
+				if (jitter_counter > 0) {
+					// we subtract one second from the jitter_counter regardless of thermal / frequency violation
+					jitter_counter -= 1;
+				}
+				// we only consider GridBallast event and jitter when the thermal band is not violated
+				// if we find frequency violation, we initialize the jitter_counter
+				else if(jitter_counter==0 && !gbcontroller.check_thermal_violation(Tw) && gbcontroller.check_freq_violation(measured_frequency)){
+						// if this is the first time jitter get triggered, circuit_status=previous states
+						// otherwise, the jitter_count has finished, we let circuite_status = circuit_status_after_delay
+						// then we initialize the jitter_counter again, and set up the circuite_status_after_delay
+					temp_status = circuit_status;
+					if(first){
+						//we maintain circuit_status to be the previous state assuming no frequency violation
+						circuit_status = heat_needed;
+						first = false;
+					}
+					else{
+						circuit_status = circuit_status_after_delay;
+					}
+					//jitter_counter = distribution(generator);
+					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
+					// under this case, the returned circuit_status should be the circuit status after jitter_counter delay
+					circuit_status_after_delay = temp_status;
+				}
+			}
+			heat_needed = circuit_status;
+			*/
+
+
 			/*
 
 			if(Tw-TSTAT_PRECISION < Ton){

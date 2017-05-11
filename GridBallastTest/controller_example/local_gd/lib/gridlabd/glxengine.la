@@ -38,4 +38,4 @@ dlopen=''
 dlpreopen=''
 
 # Directory that this library needs to be installed in:
-libdir='/Users/jingkungao/Documents/Software/gridlab-d/develop/7/local_gd/lib/gridlabd'
+libdir='/Users/jingkungao/Documents/Software/gridlab-d/develop/7/gridlab-d/GridBallastTest/controller_example/local_gdlib/gridlabd'

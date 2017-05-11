@@ -18,7 +18,7 @@
 namespace gridballastcontroller {
 
 gridballastcontroller::gridballastcontroller() {
-	// TODO Auto-generated constructor stub
+	// set default values for the private variables
 	freq_lowlimit = 59.9;
 	freq_uplimit = 60.1;
 	T_setpoint = 120;
@@ -26,10 +26,10 @@ gridballastcontroller::gridballastcontroller() {
 
 }
 
-//overload
+//overload constructor
 gridballastcontroller::gridballastcontroller(double freq_low,
 		double freq_up,double T_sp,double T_db) {
-	// TODO Auto-generated constructor stub
+	// set private variables with chosen values during constructions
 	freq_lowlimit = freq_low;
 	freq_uplimit = freq_up;
 	T_setpoint = T_sp;
@@ -38,6 +38,7 @@ gridballastcontroller::gridballastcontroller(double freq_low,
 
 void gridballastcontroller::set_parameters(double freq_low,
 		double freq_up,double T_sp,double T_db) {
+	// methods which can be called to set private variables
 	freq_lowlimit = freq_low;
 	freq_uplimit = freq_up;
 	T_setpoint = T_sp;
@@ -47,6 +48,14 @@ void gridballastcontroller::set_parameters(double freq_low,
 
 gridballastcontroller::~gridballastcontroller() {
 	// TODO Auto-generated destructor stub
+}
+
+bool gridballastcontroller::check_freq_violation(double freq_t) {
+	return (freq_t < freq_lowlimit) || (freq_t > freq_uplimit);
+}
+
+bool gridballastcontroller::check_thermal_violation(double T_t) {
+	return ((T_t - TSTAT_PRECISION) < (T_setpoint - T_deadband/2)) || ((T_t  + TSTAT_PRECISION) > (T_setpoint + T_deadband/2));
 }
 
 bool gridballastcontroller::frequency_controller(double freq_t, bool circuit_status,

@@ -10,6 +10,9 @@
 #ifndef _WATERHEATER_H
 #define _WATERHEATER_H
 
+//#include <iostream>
+//#include <random>
+
 #include "residential.h"
 #include "residential_enduse.h"
 
@@ -122,7 +125,16 @@ public:
 
 	// define the controller
 	gridballastcontroller::gridballastcontroller gbcontroller;
+	// jitter function
+	bool enable_jitter;			   		// whether to enable jitter function during the frequency violation
+	double average_delay_time;   		// in seconds, lambda value for the Poisson process
+	int jitter_counter;			  		// a jitter counter generated based on Poisson process each time the frequency violation happened
+	bool circuit_status_after_delay;  	// boolen to keep track of the circuit status after certain delay
+	bool temp_status;
 
+// Poisson not working in gridlab-d, let's using uniform distribution with mean average_delay_time then
+//	std::default_random_engine generator;
+//	std::poisson_distribution<int> distribution;
 //	Fortran water heater parameters
 public:
 	double dr_signal;				//dr_signal

@@ -54,9 +54,12 @@ public:
 	void set_parameters(double freq_low,
 			double freq_up,double T_sp,double T_db);
 
+	bool check_freq_violation(double freq_t);
+
 	bool frequency_controller(double freq_t, bool circuit_status,
 			bool enable_lock, bool force_OFF, bool force_ON);
 
+	bool check_thermal_violation(double T_t);
 	bool thermostat_controller(double T_t, bool circuit_status,
 			bool reverse_ON_OFF, bool enable_freq_control, double  freq_t);
 };
