@@ -110,7 +110,7 @@ waterheater::waterheater(MODULE *module) : residential_enduse(module){
 				PT_double,"freq_lowlimit[Hz]", PADDR(freq_lowlimit), PT_DESCRIPTION, "lower frequency limit for GridBallast control",
 				PT_double,"freq_uplimit[Hz]", PADDR(freq_uplimit), PT_DESCRIPTION, "higher frequency limit for GridBallast control",
 				PT_bool, "enable_jitter", PADDR(enable_jitter), PT_DESCRIPTION, "Disable/Enable jitter to allow dealy for the controller",
-				PT_double,"average_delay_time[s]", PADDR(average_delay_time), PT_DESCRIPTION, "average delay time for the jitter in seconds, used as an input parameter to Poisson Process",
+				PT_double,"average_delay_time[s]", PADDR(average_delay_time), PT_DESCRIPTION, "average delay time for the jitter in seconds",
 			NULL)<1)
 			GL_THROW("unable to publish properties in %s",__FILE__);
 	}
@@ -511,9 +511,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 //				first = false;
 //			}
 			static bool first = true;
-			static bool debug_f = true;
-
-
+//			static bool debug_f = true;
 
 			circuit_status = heat_needed;
 			if (!enable_jitter) {
@@ -540,7 +538,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 					if (gbcontroller.check_freq_violation(measured_frequency)){
 						// the expected status due to the frequency control
 						temp_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
-						// if jitter_counter==0, it is either the first time (in which ase let circuit_status=previous states)
+						// if jitter_counter==0, it is either the first time (in which case let circuit_status=previous states)
 						// or the jitter_count has finished, so we let circuite_status = circuit_status_after_delay
 						// then we initialize jitter_counter, let circuit_status_after_delay=temp_status
 						// if jitter_counter >0,  we subtract 1, and use the status assuming frequency control is disabled

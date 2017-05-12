@@ -81,6 +81,13 @@ ZIPload::ZIPload(MODULE *module) : residential_enduse(module)
 			PT_double,"recovery_duty_cycle[pu]",PADDR(recovery_duty_cycle),PT_DESCRIPTION, "fraction of time in the on state, while in recovery interval",
 			PT_double,"period[h]",PADDR(period),PT_DESCRIPTION, "time interval to apply duty cycle",
 			PT_double,"phase[pu]",PADDR(phase),PT_DESCRIPTION, "initial phase of load; duty will be assumed to occur at beginning of period",
+			// frquency variables
+			PT_double,"measured_frequency[Hz]", PADDR(measured_frequency), PT_DESCRIPTION, "frequency measurement - average of present phases",
+			PT_bool, "enable_freq_control", PADDR(enable_freq_control), PT_DESCRIPTION, "Disable/Enable GridBallast controller based on Grid Frequency",
+			PT_double,"freq_lowlimit[Hz]", PADDR(freq_lowlimit), PT_DESCRIPTION, "lower frequency limit for GridBallast control",
+			PT_double,"freq_uplimit[Hz]", PADDR(freq_uplimit), PT_DESCRIPTION, "higher frequency limit for GridBallast control",
+			PT_bool, "enable_jitter", PADDR(enable_jitter), PT_DESCRIPTION, "Disable/Enable jitter to allow dealy for the controller",
+			PT_double,"average_delay_time[s]", PADDR(average_delay_time), PT_DESCRIPTION, "average delay time for the jitter in seconds",
 			NULL)<1) 
 
 			GL_THROW("unable to publish properties in %s",__FILE__);
@@ -116,6 +123,21 @@ int ZIPload::create()
 	duty_cycle = recovery_duty_cycle = -1;
 	period = 0;
 	phase = 0;
+
+	// initialize controller related variables
+	measured_frequency = 60;
+	freq_lowlimit = 59.95;
+	freq_uplimit = 60.05;
+	prev_status = false;
+	circuit_status = false;
+	enable_freq_control = false;
+
+	// initialize jitter related variables
+	enable_jitter = false;
+	average_delay_time = 120;			// 2min, average delay time during frequency violation
+	jitter_counter = 0; 				// start with 0, initilize using Poisson Process after event triggered
+	circuit_status_after_delay = false;
+	temp_status = false;
 
 	//Default values of other properties
 	power_pf = current_pf = impedance_pf = 1.0;
@@ -335,6 +357,56 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 	double angleval;
 
 	double test = multiplier;
+
+	/* we add the frequency controller and the jitter here*/
+	static bool first = true;
+	// static bool debug_f = true;
+
+	circuit_status = prev_status;
+	if (enable_freq_control){
+		if (!enable_jitter) {
+			// if jitter is not enabled, we simply call the frequency controller function
+			circuit_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+		} else {
+			/* debug info
+			if (debug_f){
+				gl_output("T_setpoint:%.2f",tank_setpoint);
+				gl_output("\n T_deadband:%.2f",thermostat_deadband);
+				gl_output("Tw:%.2f, thermal_violation:%d, f_violation:%d",Tw,gbcontroller.check_thermal_violation(Tw),gbcontroller.check_freq_violation(measured_frequency));
+				gl_output("circuit_status:%d",circuit_status);
+				first = false;
+			}
+			*/
+			// we have a different logic when the jitter is enabled: we first check the frequency deadband, then the jitter_counter
+			// when enable_jitter is true, enable_freq_control is always true.
+			// check if the frequency deadband is violated, if violated, we start a counter to delay the action; otherwise do nothing
+			if (gbcontroller.check_freq_violation(measured_frequency)){
+				// the expected status due to the frequency control
+				temp_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+				// if jitter_counter==0, it is either the first time (in which case let circuit_status=previous states)
+				// or the jitter_count has finished, so we let circuite_status = circuit_status_after_delay
+				// then we initialize jitter_counter, let circuit_status_after_delay=temp_status
+				// if jitter_counter >0,  we subtract 1, and use the status assuming frequency control is disabled
+				if (jitter_counter == 0){
+					if (first){
+						circuit_status = prev_status;
+						first = false;
+					} else{
+						circuit_status = circuit_status_after_delay;
+					}
+					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
+					circuit_status_after_delay = temp_status;
+				} else if (jitter_counter > 0) {
+					jitter_counter -= 1;
+					circuit_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+				}
+			}
+		}
+	}
+	if(!circuit_status){
+		// if circuit off, we shutdown the load by forcing base_power being 0.
+		base_power = 0.;
+	}
 
 	if (demand_response_mode == true && next_time <= t1)
 	{

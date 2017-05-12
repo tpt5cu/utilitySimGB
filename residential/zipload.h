@@ -11,6 +11,7 @@
 #define _ZIPLOAD_H
 #include "residential.h"
 #include "residential_enduse.h"
+#include "gridballastcontroller.h"
 
 class ZIPload : public residential_enduse
 {
@@ -49,7 +50,32 @@ public:
 	double multiplier;			///< static multiplier to modify base power ( load = base_power * multiplier )
 	double recovery_duty_cycle; ///< duty cycle during recovery interval
 	bool heatgain_only;			///< Activates a heat only mode - no load electric load is assigned to the load
-	 
+
+	// frequency control variables
+	double main_frequency;			// grid frequency accessed from the parent triplex node
+	double measured_frequency; 		// grid frequency from measurement at each time t
+	double freq_lowlimit;			// lower tripping limit of the frequency
+	double freq_uplimit;			// upper tripping limit of the frequency
+	// we use this variable to toggle with/without frequency control
+	bool enable_freq_control;
+
+	bool prev_status;
+	bool circuit_status;			// True - ON; False - OFF, the returned variable to decide ON/OFF status
+	bool temp_status;
+
+	// force the circuit to be ON/OFF, we don't need it here
+	bool enable_lock;
+	bool force_OFF;
+	bool force_ON;
+
+	// define the controller
+	gridballastcontroller::gridballastcontroller gbcontroller;
+	// jitter function
+	bool enable_jitter;			   		// whether to enable jitter function during the frequency violation
+	double average_delay_time;   		// in seconds, lambda value for the Poisson process
+	int jitter_counter;			  		// a jitter counter generated based on Poisson process each time the frequency violation happened
+	bool circuit_status_after_delay;  	// boolen to keep track of the circuit status after certain delay
+
 
 	typedef struct {
 		double *on;
