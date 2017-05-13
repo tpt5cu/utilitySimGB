@@ -371,7 +371,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 		circuit_status = prev_status;
 		if (!enable_jitter) {
 			// if jitter is not enabled, we simply call the frequency controller function
-			circuit_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+			circuit_status = gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
 
 //			if (debug_f){
 //				gl_output("T_setpoint:%.2f",tank_setpoint);
@@ -391,14 +391,17 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 				circuit_status = true;
 			}
 			if (jitter_counter==0 && !jitter_toggler){
-				circuit_status =  gbcontroller.frequency_controller(measured_frequency, circuit_status, false,enable_freq_control,false);
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
+				if(!circuit_status){
+				gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
+				}
 			}
 
 			if (first && (jitter_counter == 0)) {
-				circuit_status =  gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
 			}
 			else if ((jitter_counter == 0)  && gbcontroller.check_freq_violation(measured_frequency)) {
-				temp_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+				temp_status = gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
 				if (jitter_counter == 0){
 					if (first){
 						circuit_status = prev_status;
