@@ -392,15 +392,17 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 			}
 			if (jitter_counter==0 && !jitter_toggler){
 				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
-				if(!circuit_status){
-				gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
-				}
+//				if(!circuit_status){
+//				gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
+//				}
 			}
+//			gl_output("before entering second if! jitter_counter:%d, measured_frequency:%.2f, frequency violate:%d",jitter_counter,measured_frequency,gbcontroller.check_freq_violation(measured_frequency));
 
-			if (first && (jitter_counter == 0)) {
+			if (first && (jitter_counter == 0) && !gbcontroller.check_freq_violation(measured_frequency)) {
 				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
 			}
 			else if ((jitter_counter == 0)  && gbcontroller.check_freq_violation(measured_frequency)) {
+//				gl_output("violation triggered, setting jitter counter");
 				temp_status = gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
 				if (jitter_counter == 0){
 					if (first){
@@ -410,6 +412,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 					// only start jitter_counter when the frequency violation happened
 					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
 					circuit_status_after_delay = temp_status;
+//					gl_output("we are triggering counter! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
 					jitter_toggler = true;
 				}
 			}
