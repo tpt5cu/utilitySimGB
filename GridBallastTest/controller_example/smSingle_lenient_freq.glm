@@ -745,6 +745,13 @@ object ZIPload {
 	current_pf 0.950000;
 	power_pf -1.000000;
 	impedance_fraction 0.733200;
+	object player {
+		file frequency.PLAYER;
+		property measured_frequency;
+	};
+	enable_freq_control true;
+	freq_lowlimit 59.9;
+	freq_uplimit 60.1;
 	groupid fan;
 };
 
@@ -761,9 +768,9 @@ object recorder {
 };
 
 object recorder {
-	interval 3600;
+	interval 1;
 	property base_power;
-	file fan2.csv;
+	file fan2_lenient_freq.csv;
 	parent fan2;
 };
 

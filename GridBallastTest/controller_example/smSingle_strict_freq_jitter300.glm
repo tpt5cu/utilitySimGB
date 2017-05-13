@@ -609,7 +609,7 @@ object waterheater {
 	freq_uplimit 60.03;
 	heat_mode ELECTRIC;
 	enable_jitter true;
-	average_delay_time 600;
+	average_delay_time 300;
 };
 
 object ZIPload {
@@ -747,6 +747,15 @@ object ZIPload {
 	current_pf 0.950000;
 	power_pf -1.000000;
 	impedance_fraction 0.733200;
+	object player {
+		file frequency.PLAYER;
+		property measured_frequency;
+	};
+	enable_freq_control true;
+	freq_lowlimit 59.97;
+	freq_uplimit 60.03;
+	enable_jitter true;
+	average_delay_time 300;
 	groupid fan;
 };
 
@@ -763,9 +772,9 @@ object recorder {
 };
 
 object recorder {
-	interval 3600;
+	interval 1;
 	property base_power;
-	file fan2.csv;
+	file fan2_strict_freq_jitter300.csv;
 	parent fan2;
 };
 
@@ -773,6 +782,6 @@ object recorder {
 	interval 1;
 	property measured_frequency,temperature,actual_load,is_waterheater_on,water_demand;
 		// current_tank_status,waterheater_model,heatgain,power_state;
-	file wh1_strict_freq_jitter.csv;
+	file wh1_strict_freq_jitter300.csv;
 	parent waterheater1;
 };

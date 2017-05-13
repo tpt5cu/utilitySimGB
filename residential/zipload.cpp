@@ -128,7 +128,7 @@ int ZIPload::create()
 	measured_frequency = 60;
 	freq_lowlimit = 59.95;
 	freq_uplimit = 60.05;
-	prev_status = false;
+	prev_status = true;
 	circuit_status = false;
 	enable_freq_control = false;
 
@@ -341,6 +341,10 @@ int ZIPload::init(OBJECT *parent)
 
 	load.breaker_amps = breaker_val;
 
+	// set paras for the controller
+	gbcontroller.set_parameters(freq_lowlimit,freq_uplimit,0,0);
+
+
 	return residential_enduse::init(parent);
 }
 
@@ -360,27 +364,62 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 
 	/* we add the frequency controller and the jitter here*/
 	static bool first = true;
-	// static bool debug_f = true;
+//	static bool debug_f = true;
 
-	circuit_status = prev_status;
 	if (enable_freq_control){
+		circuit_status = prev_status;
 		if (!enable_jitter) {
 			// if jitter is not enabled, we simply call the frequency controller function
 			circuit_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+
+//			if (debug_f){
+//				gl_output("T_setpoint:%.2f",tank_setpoint);
+//				gl_output("\n T_deadband:%.2f",thermostat_deadband);
+//				gl_output("measured_frequency:%.2f, f_violation:%d",measured_frequency,gbcontroller.check_freq_violation(measured_frequency));
+//				gl_output("circuit_status:%d",circuit_status);
+//				first = false;
+//			}
+
 		} else {
-			/* debug info
-			if (debug_f){
-				gl_output("T_setpoint:%.2f",tank_setpoint);
-				gl_output("\n T_deadband:%.2f",thermostat_deadband);
-				gl_output("Tw:%.2f, thermal_violation:%d, f_violation:%d",Tw,gbcontroller.check_thermal_violation(Tw),gbcontroller.check_freq_violation(measured_frequency));
-				gl_output("circuit_status:%d",circuit_status);
-				first = false;
+			if (!first && (jitter_counter == 0)){
+				circuit_status = circuit_status_after_delay;
+			} else if (jitter_counter > 0) {
+				jitter_counter -= 1;
+				// not enable frequency control
+				circuit_status = true;
 			}
-			*/
+			if (first && (jitter_counter == 0)) {
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+			}
+			else if ((jitter_counter == 0)  && gbcontroller.check_freq_violation(measured_frequency)) {
+				temp_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
+				if (jitter_counter == 0){
+					if (first){
+						circuit_status = prev_status;
+						first = false;
+					}
+					// only start jitter_counter when the frequency violation happened
+					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
+					circuit_status_after_delay = temp_status;
+				}
+			}
+		}
+		prev_status = circuit_status;
+		if(!circuit_status){
+			// if circuit off, we shutdown the load by forcing base_power being 0.
+			base_power = 0.;
+		}
+	}
+
+
+
+
+
+			/*
 			// we have a different logic when the jitter is enabled: we first check the frequency deadband, then the jitter_counter
 			// when enable_jitter is true, enable_freq_control is always true.
 			// check if the frequency deadband is violated, if violated, we start a counter to delay the action; otherwise do nothing
-			if (gbcontroller.check_freq_violation(measured_frequency)){
+			if (){
 				// the expected status due to the frequency control
 				temp_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
 				// if jitter_counter==0, it is either the first time (in which case let circuit_status=previous states)
@@ -394,6 +433,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 					} else{
 						circuit_status = circuit_status_after_delay;
 					}
+					gbcontroller.check_freq_violation(measured_frequency)
 					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
 					circuit_status_after_delay = temp_status;
 				} else if (jitter_counter > 0) {
@@ -403,10 +443,14 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 			}
 		}
 	}
+
+
+	prev_status = circuit_status;
 	if(!circuit_status){
 		// if circuit off, we shutdown the load by forcing base_power being 0.
 		base_power = 0.;
 	}
+	*/
 
 	if (demand_response_mode == true && next_time <= t1)
 	{

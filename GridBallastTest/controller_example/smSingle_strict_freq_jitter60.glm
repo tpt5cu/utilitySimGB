@@ -1,12 +1,12 @@
 clock {
-	timezone PST+8PDT;
+	timezone EST5;
 	starttime '2012-01-01 00:00:00';
 	stoptime '2012-01-02 00:00:00';
 };
 
 #include "hot_water_demand.glm";
 
-#set minimum_timestep=1;
+#set minimum_timestep=60;
 #set profiler=1;
 #set relax_naming_rules=1;
 module generators;
@@ -600,6 +600,16 @@ object waterheater {
 	tank_setpoint 136.8;
 	tank_UA 2.4;
 	temperature 135;
+	object player {
+		file frequency.PLAYER;
+		property measured_frequency;
+	};
+	enable_freq_control true;
+	freq_lowlimit 59.97;
+	freq_uplimit 60.03;
+	heat_mode ELECTRIC;
+	enable_jitter true;
+	average_delay_time 60;
 };
 
 object ZIPload {
@@ -737,6 +747,15 @@ object ZIPload {
 	current_pf 0.950000;
 	power_pf -1.000000;
 	impedance_fraction 0.733200;
+	object player {
+		file frequency.PLAYER;
+		property measured_frequency;
+	};
+	enable_freq_control true;
+	freq_lowlimit 59.97;
+	freq_uplimit 60.03;
+	enable_jitter true;
+	average_delay_time 60;
 	groupid fan;
 };
 
@@ -753,16 +772,16 @@ object recorder {
 };
 
 object recorder {
-	interval 1;
+	interval 60;
 	property base_power;
-	file fan2_base.csv;
+	file fan2_strict_freq_jitter60.csv;
 	parent fan2;
 };
 
 object recorder {
-	interval 1;
+	interval 60;
 	property measured_frequency,temperature,actual_load,is_waterheater_on,water_demand;
 		// current_tank_status,waterheater_model,heatgain,power_state;
-	file wh1_base.csv;
+	file wh1_strict_freq_jitter60.csv;
 	parent waterheater1;
 };
