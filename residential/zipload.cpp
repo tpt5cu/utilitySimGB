@@ -382,7 +382,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 //			}
 
 		} else {
-			if (!jitter_toggler && !first && (jitter_counter == 0)){
+			if (jitter_toggler && !first && (jitter_counter == 0)){
 				circuit_status = circuit_status_after_delay;
 				jitter_toggler = false;
 			} else if (jitter_counter > 0) {
