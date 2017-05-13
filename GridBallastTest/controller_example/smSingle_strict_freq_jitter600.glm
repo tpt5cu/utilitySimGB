@@ -774,7 +774,7 @@ object recorder {
 object recorder {
 	interval 1;
 	property base_power;
-	file fan2_strict_freq_jitter300.csv;
+	file fan2_strict_freq_jitter600.csv;
 	parent fan2;
 };
 
@@ -782,6 +782,6 @@ object recorder {
 	interval 1;
 	property measured_frequency,temperature,actual_load,is_waterheater_on,water_demand;
 		// current_tank_status,waterheater_model,heatgain,power_state;
-	file wh1_strict_freq_jitter300.csv;
+	file wh1_strict_freq_jitter600.csv;
 	parent waterheater1;
 };

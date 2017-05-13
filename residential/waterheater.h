@@ -131,6 +131,7 @@ public:
 	int jitter_counter;			  		// a jitter counter generated based on Poisson process each time the frequency violation happened
 	bool circuit_status_after_delay;  	// boolen to keep track of the circuit status after certain delay
 	bool temp_status;
+	bool jitter_toggler;
 	int temp_cnt;
 // Poisson not working in gridlab-d, let's using uniform distribution with mean average_delay_time then
 //	std::default_random_engine generator;

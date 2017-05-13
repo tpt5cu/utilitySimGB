@@ -154,7 +154,7 @@ int waterheater::create()
 	jitter_counter = 0; 				// start with 0, initilize using Poisson Process after event triggered
 	circuit_status_after_delay = false;
 	temp_status = false;
-
+	jitter_toggler = false;
 	// location...mostly in garage, a few inside...
 	location = gl_random_bernoulli(RNGSTATE,0.80) ? GARAGE : INSIDE;
 
@@ -531,9 +531,9 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 				// clean version
 				//default case, can be override if later triggered.
 //				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency);
-				if (temp_status && !first && (jitter_counter == 0)){
+				if (jitter_toggler && !first && (jitter_counter == 0)){
 					circuit_status = circuit_status_after_delay;
-					temp_status = false;
+					jitter_toggler = false;
 				} else if (jitter_counter > 0) {
 					jitter_counter -= 1;
 					// not enable frequency control
@@ -541,7 +541,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 //					gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
 				}
 
-				if (jitter_counter == 0 && !temp_status) {
+				if (jitter_counter == 0 && !jitter_toggler) {
 				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency);
 				}
 
@@ -565,7 +565,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 						jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
 //						gl_output("we are using jitter! jitter_counter:%d",jitter_counter);
 						circuit_status_after_delay = temp_status;
-						temp_status = true;
+						jitter_toggler = true;
 //						gl_output("jitter_counter:%d",jitter_counter);
 				}
 			}

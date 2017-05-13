@@ -62,6 +62,7 @@ public:
 	bool prev_status;
 	bool circuit_status;			// True - ON; False - OFF, the returned variable to decide ON/OFF status
 	bool temp_status;
+	bool jitter_toggler;
 
 	// force the circuit to be ON/OFF, we don't need it here
 	bool enable_lock;

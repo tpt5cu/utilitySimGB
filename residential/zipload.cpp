@@ -138,6 +138,7 @@ int ZIPload::create()
 	jitter_counter = 0; 				// start with 0, initilize using Poisson Process after event triggered
 	circuit_status_after_delay = false;
 	temp_status = false;
+	jitter_toggler = false;
 
 	//Default values of other properties
 	power_pf = current_pf = impedance_pf = 1.0;
@@ -381,13 +382,18 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 //			}
 
 		} else {
-			if (!first && (jitter_counter == 0)){
+			if (!jitter_toggler && !first && (jitter_counter == 0)){
 				circuit_status = circuit_status_after_delay;
+				jitter_toggler = false;
 			} else if (jitter_counter > 0) {
 				jitter_counter -= 1;
 				// not enable frequency control
 				circuit_status = true;
 			}
+			if (jitter_counter==0 && !jitter_toggler){
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, circuit_status, false,enable_freq_control,false);
+			}
+
 			if (first && (jitter_counter == 0)) {
 				circuit_status =  gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
 			}
@@ -401,6 +407,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 					// only start jitter_counter when the frequency violation happened
 					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
 					circuit_status_after_delay = temp_status;
+					jitter_toggler = true;
 				}
 			}
 		}
