@@ -530,8 +530,8 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 //				}
 				// clean version
 				//default case, can be override if later triggered.
-				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency);
-				if (!first && (jitter_counter == 0)){
+//				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency);
+				if (temp_status && !first && (jitter_counter == 0)){
 					circuit_status = circuit_status_after_delay;
 					temp_status = false;
 				} else if (jitter_counter > 0) {
@@ -541,8 +541,12 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 //					gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
 				}
 
+				if (jitter_counter == 0 && !temp_status) {
+				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency);
+				}
+
 				if ((jitter_counter == 0) && gbcontroller.check_thermal_violation(Tw)) {
-					if (first && temp_status){
+					if (first){
 					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency);
 					}
 
@@ -561,10 +565,10 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 						jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
 //						gl_output("we are using jitter! jitter_counter:%d",jitter_counter);
 						circuit_status_after_delay = temp_status;
+						temp_status = true;
 //						gl_output("jitter_counter:%d",jitter_counter);
 				}
 			}
-
 			heat_needed = circuit_status;
 
 

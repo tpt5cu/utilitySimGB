@@ -609,7 +609,7 @@ object waterheater {
 	freq_uplimit 60.03;
 	heat_mode ELECTRIC;
 	enable_jitter true;
-	average_delay_time 300;
+	average_delay_time 3000;
 };
 
 object ZIPload {
@@ -755,7 +755,7 @@ object ZIPload {
 	freq_lowlimit 59.97;
 	freq_uplimit 60.03;
 	enable_jitter true;
-	average_delay_time 300;
+	average_delay_time 3000;
 	groupid fan;
 };
 

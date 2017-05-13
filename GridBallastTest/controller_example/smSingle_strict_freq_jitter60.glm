@@ -6,7 +6,7 @@ clock {
 
 #include "hot_water_demand.glm";
 
-#set minimum_timestep=60;
+#set minimum_timestep=1;
 #set profiler=1;
 #set relax_naming_rules=1;
 module generators;
@@ -772,14 +772,14 @@ object recorder {
 };
 
 object recorder {
-	interval 60;
+	interval 1;
 	property base_power;
 	file fan2_strict_freq_jitter60.csv;
 	parent fan2;
 };
 
 object recorder {
-	interval 60;
+	interval 1;
 	property measured_frequency,temperature,actual_load,is_waterheater_on,water_demand;
 		// current_tank_status,waterheater_model,heatgain,power_state;
 	file wh1_strict_freq_jitter60.csv;
