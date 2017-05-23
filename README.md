@@ -2,7 +2,7 @@ Please refer to directory
 
 *GridBallastTest/controller_example/* 
 
-for specific examples of how to add controller to the water heaters using .glm files, and how to use the pre-compiled binary gridlabd.bin in macOS.
+for specific examples of how to add controller to the water heaters using .glm files, and how to use the pre-compiled binary gridlabd in macOS.
 
 If the provided binary is not working, it is always possible to compile form source by following the commands below.
 

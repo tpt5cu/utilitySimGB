@@ -38,4 +38,5 @@ dlopen=''
 dlpreopen=''
 
 # Directory that this library needs to be installed in:
-libdir='/tmp/temp/lib/gridlabd'
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+libdir=`dirname $DIR`
