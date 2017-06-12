@@ -25,13 +25,14 @@ private:
 public:
 	/* we don't seem to need initialize these variables as they are inputs to the controllers
 	 * However, we do need to define them inside the class where the controller is implemented.
+
 	// frequency control variables
 	double freq_t; 					// grid frequency at time t
 
 	bool circuit_status;			// True - ON; False - OFF, the returned variable to decide ON/OFF status
 	bool enable_lock;				// force the circuit to be ON/OFF
-	bool force_OFF;
-	bool force_ON;
+	bool lock_STATUS;				// True - force ON; Flase - force OFF
+	bool lock_OVERRIDE_TS;			// whether to override the thermostat setpoint for TCLs
 
 	// thermostat control variables
 	double T_t;						// temperature at time t
@@ -40,6 +41,7 @@ public:
 	// and let the circuit OFF when T_t > upper thermal band (for water heater)
 	// if False, it is the other way around (for refrigerator, e.g.)
 	bool reverse_ON_OFF;
+
 	// we use this variable to toggle with/without frequency control
 	bool enable_freq_control;
 	*/
@@ -57,11 +59,12 @@ public:
 	bool check_freq_violation(double freq_t);
 
 	bool frequency_controller(double freq_t, bool circuit_status,
-			bool enable_lock, bool force_OFF, bool force_ON);
+			bool enable_lock, bool lock_STATUS);
 
 	bool check_thermal_violation(double T_t);
 	bool thermostat_controller(double T_t, bool circuit_status,
-			bool reverse_ON_OFF, bool enable_freq_control, double  freq_t);
+			bool reverse_ON_OFF, bool enable_freq_control, double  freq_t,
+			bool enable_lock, bool lock_STATUS, bool lock_OVERRIDE_TS);
 };
 
 } /* namespace gridballastcontroller */

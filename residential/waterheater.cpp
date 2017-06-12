@@ -26,6 +26,8 @@
 
 #include "house_a.h"
 #include "waterheater.h"
+#include "../powerflow/node.h"
+#include "../powerflow/triplex_meter.h"
 
 
 #define TSTAT_PRECISION 0.01
@@ -111,6 +113,12 @@ waterheater::waterheater(MODULE *module) : residential_enduse(module){
 				PT_double,"freq_uplimit[Hz]", PADDR(freq_uplimit), PT_DESCRIPTION, "higher frequency limit for GridBallast control",
 				PT_bool, "enable_jitter", PADDR(enable_jitter), PT_DESCRIPTION, "Disable/Enable jitter to allow dealy for the controller",
 				PT_double,"average_delay_time[s]", PADDR(average_delay_time), PT_DESCRIPTION, "average delay time for the jitter in seconds",
+				// voltage variables
+				PT_double, "measured_voltage[V]", PADDR(measured_voltage),PT_DESCRIPTION,"measured voltage from the circuit",
+				// lock mode
+				PT_bool, "enable_lock_mode", PADDR(enable_lock), PT_DESCRIPTION, "Disable/Enable lock mode for the GridBallast controller",
+				PT_bool, "lock_STATUS", PADDR(lock_STATUS), PT_DESCRIPTION, "True/False of the lock status once the lock is enabled",
+				PT_bool, "lock_OVERRIDE_TS", PADDR(lock_OVERRIDE_TS), PT_DESCRIPTION, "True/False to override the temperature setpoint once the lock is enabled",
 			NULL)<1)
 			GL_THROW("unable to publish properties in %s",__FILE__);
 	}
@@ -147,6 +155,10 @@ int waterheater::create()
 	freq_uplimit = 60.05;
 	circuit_status = false;
 	enable_freq_control = false;
+
+	enable_lock = false;
+	lock_OVERRIDE_TS = false;
+	lock_STATUS = false;
 
 	// initialize jitter related variables
 	enable_jitter = false;
@@ -502,7 +514,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 	enumeration tank_status = tank_state();
 	switch(tank_status){
 		case FULL:
-			// gl_verbose("T_setpoint:",tank_setpoint,"\n T_deadband:",thermostat_deadband);
+//			 gl_verbose("T_setpoint:",tank_setpoint,"\n T_deadband:",thermostat_deadband);
 //			static bool first = true;
 //			if (first){
 //				gl_verbose("T_setpoint:",T_setpoint,"\n T_deadband:",T_deadband);
@@ -517,7 +529,8 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 			circuit_status = heat_needed;
 			if (!enable_jitter) {
 				// if jitter is not enabled, we simply call the controller function
-				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
+				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency,
+						enable_lock, lock_STATUS, lock_OVERRIDE_TS);
 			} else {
 
 //				if (temp_cnt>0){
@@ -537,22 +550,26 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 				} else if (jitter_counter > 0) {
 					jitter_counter -= 1;
 					// not enable frequency control
-					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency);
+					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency,
+							false, lock_STATUS, lock_OVERRIDE_TS);
 //					gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
 				}
 
 				if (jitter_counter == 0 && !jitter_toggler) {
-				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency);
+				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency,
+						enable_lock, lock_STATUS, lock_OVERRIDE_TS);
 				}
 
 				if ((jitter_counter == 0) && gbcontroller.check_thermal_violation(Tw)) {
 					if (first){
-					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency);
+					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency,
+							enable_lock, lock_STATUS, lock_OVERRIDE_TS);
 					}
 
 				} else if ((jitter_counter == 0) && !gbcontroller.check_thermal_violation(Tw) && gbcontroller.check_freq_violation(measured_frequency)){
 					// the expected status due to the frequency control
-					temp_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency);
+					temp_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency,
+							enable_lock, lock_STATUS, lock_OVERRIDE_TS);
 					// if jitter_counter==0, it is either the first time (in which case let circuit_status=previous states)
 					// or the jitter_count has finished, so we let circuite_status = circuit_status_after_delay
 					// then we initialize jitter_counter, let circuit_status_after_delay=temp_status
@@ -624,57 +641,8 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 				}
 			}
 
-
 			heat_needed = circuit_status; */
-			/*
-			// check enable_freq and enable_jitter
-			if (enable_freq_control && enable_jitter ) {
-				if (jitter_counter > 0) {
-					// we subtract one second from the jitter_counter regardless of thermal / frequency violation
-					jitter_counter -= 1;
-				}
-				// we only consider GridBallast event and jitter when the thermal band is not violated
-				// if we find frequency violation, we initialize the jitter_counter
-				else if(jitter_counter==0 && !gbcontroller.check_thermal_violation(Tw) && gbcontroller.check_freq_violation(measured_frequency)){
-						// if this is the first time jitter get triggered, circuit_status=previous states
-						// otherwise, the jitter_count has finished, we let circuite_status = circuit_status_after_delay
-						// then we initialize the jitter_counter again, and set up the circuite_status_after_delay
-					temp_status = circuit_status;
-					if(first){
-						//we maintain circuit_status to be the previous state assuming no frequency violation
-						circuit_status = heat_needed;
-						first = false;
-					}
-					else{
-						circuit_status = circuit_status_after_delay;
-					}
-					//jitter_counter = distribution(generator);
-					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
-					// under this case, the returned circuit_status should be the circuit status after jitter_counter delay
-					circuit_status_after_delay = temp_status;
-				}
-			}
-			heat_needed = circuit_status;
-			*/
 
-
-			/*
-
-			if(Tw-TSTAT_PRECISION < Ton){
-				// enable_subsecond_models = TRUE;
-				heat_needed = TRUE;
-			} else if (Tw+TSTAT_PRECISION > Toff){
-				heat_needed = FALSE;
-			} else {
-				// no change unless the gridBallast controller is enabled
-				if(enable_freq_control && measured_frequency < freq_lowlimit){
-					heat_needed = TRUE;
-				} else if(enable_freq_control && measured_frequency > freq_uplimit){
-					heat_needed = FALSE;
-				}
-
-			}
-//			*/
 			break;
 		case PARTIAL:
 			if (heat_mode == HEAT_PUMP) {
@@ -686,7 +654,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 				} else {
 					// no change unless the gridBallast controller is enabled
 					circuit_status = heat_needed;
-					circuit_status = gbcontroller.frequency_controller(Tw, circuit_status, false,false,false);
+					circuit_status = gbcontroller.frequency_controller(Tw, circuit_status, enable_lock, lock_STATUS);
 					heat_needed = circuit_status;
 					/*
 					if(gridBallast_control_enable && measured_frequency < lower_frequency){
@@ -838,6 +806,7 @@ TIMESTAMP waterheater::sync(TIMESTAMP t0, TIMESTAMP t1)
 		}
 	}
 
+
 	if(Tw > 212.0 - thermostat_deadband){ // if it's trying boil, turn it off!
 		heat_needed = FALSE;
 		is_waterheater_on = 0;
@@ -931,8 +900,73 @@ TIMESTAMP waterheater::sync(TIMESTAMP t0, TIMESTAMP t1)
 		prev_load = actual_load;
 		power_state = PS_ON;
 	}
-	else
+	else{
 		power_state = PS_OFF;
+	}
+
+	measured_voltage = pCircuit->pV->Mag();
+
+	//TODO: add voltage controller? need to check which one has higher priority
+
+
+/*
+	// get frequency from parents node
+	OBJECT *my = OBJECTHDR(this);
+	gl_warning("begin getting node from parent");
+	if(node * this_node = OBJECTDATA(my->parent->parent,node))
+	{
+//		this_node->print_test();
+		if ( this_node->isa("node") )
+		{
+			// get average frequency data from node object
+			main_frequency = this_node->frequency;
+		}
+		else
+		{
+			static bool first = true;
+			if ( first )
+			{
+				gl_error("grandparent object of %s is not a node",my->name?my->name:"(unknown)");
+				first = false;
+			}
+		}
+		gl_output("grid frequency from main:", main_frequency);
+	}
+	else
+		gl_warning("grandparent object of %s is not found",my->name?my->name:"(unknown)");
+*/
+
+	/*
+	// get voltage from parents node
+	OBJECT *my = OBJECTHDR(this);
+	gl_warning("begin getting triplex_meter from parent");
+	if(triplex_meter * this_meter = OBJECTDATA(my->parent->parent,triplex_meter))
+	{
+		if ( this_meter->isa("triplex_meter") )
+		{
+			// get voltage data from triplex_meter
+			memcpy(measured_voltage, this_meter->measured_voltage, sizeof(this_meter->measured_voltage[0]) * 3);
+//			complex temp_voltage[3] = this_node->measured_voltage;
+//			measured_voltage[0] =temp_voltage[0];
+//			measured_voltage[1] =temp_voltage[1];
+//			measured_voltage[2] =temp_voltage[2];
+
+		}
+		else
+		{
+			static bool first = true;
+			if ( first )
+			{
+				gl_error("grandparent object of %s is not a triplex_meter",my->name?my->name:"(unknown)");
+				first = false;
+			}
+		}
+		gl_output("measured voltage from main:", measured_voltage);
+	}
+	else
+		gl_warning("grandparent object of %s is not found",my->name?my->name:"(unknown)");
+
+*/
 
 //	gl_enduse_sync(&(residential_enduse::load),t1);
 	if(current_model != FORTRAN){
@@ -955,26 +989,6 @@ TIMESTAMP waterheater::sync(TIMESTAMP t0, TIMESTAMP t1)
 			return t2;
 		}
 	}
-	
-	OBJECT *my = OBJECTHDR(this);
-
-	if(node * this_node = OBJECTDATA(my->parent->parent,node))
-	{
-		if ( this_node->isa("node") )
-			// get average frequency data from node object
-			main_frequency = this_node->frequency;
-		else
-		{
-			static bool first = true;
-			if ( first )
-			{
-				gl_error("grandparent object of %s is not a node",my->name?my->name:"(unknown)");
-				first = false;
-			}
-		}
-	}
-	else
-		gl_warning("grandparent object of %s is not found",my->name?my->name:"(unknown)");
 	
 }	
 

@@ -56,6 +56,9 @@ public:
 	double measured_frequency; 		// grid frequency from measurement at each time t
 	double freq_lowlimit;			// lower tripping limit of the frequency
 	double freq_uplimit;			// upper tripping limit of the frequency
+
+	double measured_voltage;
+
 	// we use this variable to toggle with/without frequency control
 	bool enable_freq_control;
 
@@ -66,8 +69,7 @@ public:
 
 	// force the circuit to be ON/OFF, we don't need it here
 	bool enable_lock;
-	bool force_OFF;
-	bool force_ON;
+	bool lock_STATUS;
 
 	// define the controller
 	gridballastcontroller::gridballastcontroller gbcontroller;

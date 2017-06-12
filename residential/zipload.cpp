@@ -88,6 +88,11 @@ ZIPload::ZIPload(MODULE *module) : residential_enduse(module)
 			PT_double,"freq_uplimit[Hz]", PADDR(freq_uplimit), PT_DESCRIPTION, "higher frequency limit for GridBallast control",
 			PT_bool, "enable_jitter", PADDR(enable_jitter), PT_DESCRIPTION, "Disable/Enable jitter to allow dealy for the controller",
 			PT_double,"average_delay_time[s]", PADDR(average_delay_time), PT_DESCRIPTION, "average delay time for the jitter in seconds",
+			// voltage variables
+			PT_double, "measured_voltage[V]", PADDR(measured_voltage),PT_DESCRIPTION,"measured voltage from the circuit",
+			// lock mode
+			PT_bool, "enable_lock_mode", PADDR(enable_lock), PT_DESCRIPTION, "Disable/Enable lock mode for the GridBallast controller",
+			PT_bool, "lock_STATUS", PADDR(lock_STATUS), PT_DESCRIPTION, "True/False of the lock status once the lock is enabled",
 			NULL)<1) 
 
 			GL_THROW("unable to publish properties in %s",__FILE__);
@@ -131,6 +136,9 @@ int ZIPload::create()
 	prev_status = true;
 	circuit_status = false;
 	enable_freq_control = false;
+
+	enable_lock = false;
+	lock_STATUS = false;
 
 	// initialize jitter related variables
 	enable_jitter = false;
@@ -371,7 +379,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 		circuit_status = prev_status;
 		if (!enable_jitter) {
 			// if jitter is not enabled, we simply call the frequency controller function
-			circuit_status = gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
+			circuit_status = gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock, lock_STATUS);
 
 //			if (debug_f){
 //				gl_output("T_setpoint:%.2f",tank_setpoint);
@@ -391,7 +399,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 				circuit_status = true;
 			}
 			if (jitter_counter==0 && !jitter_toggler){
-				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock, lock_STATUS);
 //				if(!circuit_status){
 //				gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
 //				}
@@ -399,11 +407,11 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 //			gl_output("before entering second if! jitter_counter:%d, measured_frequency:%.2f, frequency violate:%d",jitter_counter,measured_frequency,gbcontroller.check_freq_violation(measured_frequency));
 
 			if (first && (jitter_counter == 0) && !gbcontroller.check_freq_violation(measured_frequency)) {
-				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock, lock_STATUS);
 			}
 			else if ((jitter_counter == 0)  && gbcontroller.check_freq_violation(measured_frequency)) {
 //				gl_output("violation triggered, setting jitter counter");
-				temp_status = gbcontroller.frequency_controller(measured_frequency, prev_status, false,false,false);
+				temp_status = gbcontroller.frequency_controller(measured_frequency, prev_status, enable_lock, lock_STATUS);
 				if (jitter_counter == 0){
 					if (first){
 						circuit_status = prev_status;
@@ -424,46 +432,10 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 		}
 	}
 
+	// access the voltage from the circuit.
+	measured_voltage = pCircuit->pV->Mag();
 
-
-
-
-			/*
-			// we have a different logic when the jitter is enabled: we first check the frequency deadband, then the jitter_counter
-			// when enable_jitter is true, enable_freq_control is always true.
-			// check if the frequency deadband is violated, if violated, we start a counter to delay the action; otherwise do nothing
-			if (){
-				// the expected status due to the frequency control
-				temp_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
-				// if jitter_counter==0, it is either the first time (in which case let circuit_status=previous states)
-				// or the jitter_count has finished, so we let circuite_status = circuit_status_after_delay
-				// then we initialize jitter_counter, let circuit_status_after_delay=temp_status
-				// if jitter_counter >0,  we subtract 1, and use the status assuming frequency control is disabled
-				if (jitter_counter == 0){
-					if (first){
-						circuit_status = prev_status;
-						first = false;
-					} else{
-						circuit_status = circuit_status_after_delay;
-					}
-					gbcontroller.check_freq_violation(measured_frequency)
-					jitter_counter = (int) (gl_random_uniform(RNGSTATE,1, 2*average_delay_time) + 0.5);
-					circuit_status_after_delay = temp_status;
-				} else if (jitter_counter > 0) {
-					jitter_counter -= 1;
-					circuit_status = gbcontroller.frequency_controller(measured_frequency, circuit_status, false,false,false);
-				}
-			}
-		}
-	}
-
-
-	prev_status = circuit_status;
-	if(!circuit_status){
-		// if circuit off, we shutdown the load by forcing base_power being 0.
-		base_power = 0.;
-	}
-	*/
+	//TODO: add voltage controller? need to check which one has higher priority
 
 	if (demand_response_mode == true && next_time <= t1)
 	{

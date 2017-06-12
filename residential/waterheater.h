@@ -17,6 +17,7 @@
 #include "residential_enduse.h"
 
 #include "../powerflow/node.h"
+#include "../powerflow/triplex_meter.h"
 #include "gridballastcontroller.h"
 
 class waterheater : public residential_enduse {
@@ -113,10 +114,6 @@ public:
 
 	bool circuit_status;			// True - ON; False - OFF, the returned variable to decide ON/OFF status
 
-	// force the circuit to be ON/OFF, we don't need it here
-	bool enable_lock;
-	bool force_OFF;
-	bool force_ON;
 
 	// if True, we let the circuit ON when T_t < lower thermal band,
 	// and let the circuit OFF when T_t > upper thermal band (for water heater)
@@ -127,15 +124,24 @@ public:
 	gridballastcontroller::gridballastcontroller gbcontroller;
 	// jitter function
 	bool enable_jitter;			   		// whether to enable jitter function during the frequency violation
-	double average_delay_time;   		// in seconds, lambda value for the Poisson process
+	double average_delay_time;   		// in seconds, parameter for the uniform distribution
+	// Poisson not working in gridlab-d, let's using uniform distribution with mean average_delay_time then
+	//	std::default_random_engine generator;
+	//	std::poisson_distribution<int> distribution;
 	int jitter_counter;			  		// a jitter counter generated based on Poisson process each time the frequency violation happened
 	bool circuit_status_after_delay;  	// boolen to keep track of the circuit status after certain delay
 	bool temp_status;
 	bool jitter_toggler;
 	int temp_cnt;
-// Poisson not working in gridlab-d, let's using uniform distribution with mean average_delay_time then
-//	std::default_random_engine generator;
-//	std::poisson_distribution<int> distribution;
+
+	// force the circuit to be ON/OFF, we don't need it here
+	bool enable_lock;
+	bool lock_STATUS;
+	bool lock_OVERRIDE_TS;
+
+	// voltage
+	double measured_voltage;
+
 //	Fortran water heater parameters
 public:
 	double dr_signal;				//dr_signal

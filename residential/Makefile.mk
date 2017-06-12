@@ -56,4 +56,3 @@ residential_residential_la_SOURCES += residential/zipload.h
 residential_residential_la_SOURCES += residential/elcap1990.h
 residential_residential_la_SOURCES += residential/elcap2010.h
 residential_residential_la_SOURCES += residential/gridballastcontroller.cpp
-residential_residential_la_SOURCES += residential/gridballastcontroller.h
