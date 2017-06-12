@@ -91,8 +91,8 @@ ZIPload::ZIPload(MODULE *module) : residential_enduse(module)
 			// voltage variables
 			PT_double, "measured_voltage[V]", PADDR(measured_voltage),PT_DESCRIPTION,"measured voltage from the circuit",
 			// lock mode
-			PT_bool, "enable_lock_mode", PADDR(enable_lock), PT_DESCRIPTION, "Disable/Enable lock mode for the GridBallast controller",
-			PT_bool, "lock_STATUS", PADDR(lock_STATUS), PT_DESCRIPTION, "True/False of the lock status once the lock is enabled",
+			PT_int16, "enable_lock_mode", PADDR(enable_lock), PT_DESCRIPTION, "Disable/Enable lock mode for the GridBallast controller",
+			PT_int16, "lock_STATUS", PADDR(lock_STATUS), PT_DESCRIPTION, "True/False of the lock status once the lock is enabled",
 			NULL)<1) 
 
 			GL_THROW("unable to publish properties in %s",__FILE__);
@@ -137,8 +137,8 @@ int ZIPload::create()
 	circuit_status = false;
 	enable_freq_control = false;
 
-	enable_lock = false;
-	lock_STATUS = false;
+	enable_lock = 0;
+	lock_STATUS = 0;
 
 	// initialize jitter related variables
 	enable_jitter = false;
@@ -374,17 +374,27 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 	/* we add the frequency controller and the jitter here*/
 	static bool first = true;
 //	static bool debug_f = true;
+//	static bool temp_first = true;
+//	int temp_cnt;
+//
+//	if (temp_first){
+//		temp_cnt = 0;
+//		temp_first = false;
+//	}
 
 	if (enable_freq_control){
 		circuit_status = prev_status;
 		if (!enable_jitter) {
 			// if jitter is not enabled, we simply call the frequency controller function
-			circuit_status = gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock, lock_STATUS);
+			circuit_status = gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock==1, lock_STATUS==1);
 
-//			if (debug_f){
+//			if (debug_f && !temp_first){
+//				temp_cnt = temp_cnt + 1;
 //				gl_output("T_setpoint:%.2f",tank_setpoint);
 //				gl_output("\n T_deadband:%.2f",thermostat_deadband);
 //				gl_output("measured_frequency:%.2f, f_violation:%d",measured_frequency,gbcontroller.check_freq_violation(measured_frequency));
+//				gl_output("*******************%d***************\n enable_lock:%d",temp_cnt,enable_lock==1);
+//				gl_output("lock_STATUS:%d",lock_STATUS==1);
 //				gl_output("circuit_status:%d",circuit_status);
 //				first = false;
 //			}
@@ -399,7 +409,7 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 				circuit_status = true;
 			}
 			if (jitter_counter==0 && !jitter_toggler){
-				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock, lock_STATUS);
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock==1, lock_STATUS==1);
 //				if(!circuit_status){
 //				gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
 //				}
@@ -407,11 +417,11 @@ TIMESTAMP ZIPload::sync(TIMESTAMP t0, TIMESTAMP t1)
 //			gl_output("before entering second if! jitter_counter:%d, measured_frequency:%.2f, frequency violate:%d",jitter_counter,measured_frequency,gbcontroller.check_freq_violation(measured_frequency));
 
 			if (first && (jitter_counter == 0) && !gbcontroller.check_freq_violation(measured_frequency)) {
-				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock, lock_STATUS);
+				circuit_status =  gbcontroller.frequency_controller(measured_frequency, prev_status,enable_lock==1, lock_STATUS==1);
 			}
 			else if ((jitter_counter == 0)  && gbcontroller.check_freq_violation(measured_frequency)) {
 //				gl_output("violation triggered, setting jitter counter");
-				temp_status = gbcontroller.frequency_controller(measured_frequency, prev_status, enable_lock, lock_STATUS);
+				temp_status = gbcontroller.frequency_controller(measured_frequency, prev_status, enable_lock==1, lock_STATUS==1);
 				if (jitter_counter == 0){
 					if (first){
 						circuit_status = prev_status;

@@ -116,8 +116,8 @@ waterheater::waterheater(MODULE *module) : residential_enduse(module){
 				// voltage variables
 				PT_double, "measured_voltage[V]", PADDR(measured_voltage),PT_DESCRIPTION,"measured voltage from the circuit",
 				// lock mode
-				PT_bool, "enable_lock_mode", PADDR(enable_lock), PT_DESCRIPTION, "Disable/Enable lock mode for the GridBallast controller",
-				PT_bool, "lock_STATUS", PADDR(lock_STATUS), PT_DESCRIPTION, "True/False of the lock status once the lock is enabled",
+				PT_int16, "enable_lock_mode", PADDR(enable_lock), PT_DESCRIPTION, "Disable/Enable lock mode for the GridBallast controller",
+				PT_int16, "lock_STATUS", PADDR(lock_STATUS), PT_DESCRIPTION, "True/False of the lock status once the lock is enabled",
 				PT_bool, "lock_OVERRIDE_TS", PADDR(lock_OVERRIDE_TS), PT_DESCRIPTION, "True/False to override the temperature setpoint once the lock is enabled",
 			NULL)<1)
 			GL_THROW("unable to publish properties in %s",__FILE__);
@@ -156,9 +156,9 @@ int waterheater::create()
 	circuit_status = false;
 	enable_freq_control = false;
 
-	enable_lock = false;
+	enable_lock = 0;
+	lock_STATUS = 0;
 	lock_OVERRIDE_TS = false;
-	lock_STATUS = false;
 
 	// initialize jitter related variables
 	enable_jitter = false;
@@ -530,7 +530,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 			if (!enable_jitter) {
 				// if jitter is not enabled, we simply call the controller function
 				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency,
-						enable_lock, lock_STATUS, lock_OVERRIDE_TS);
+						enable_lock==1, lock_STATUS==1, lock_OVERRIDE_TS);
 			} else {
 
 //				if (temp_cnt>0){
@@ -551,25 +551,25 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 					jitter_counter -= 1;
 					// not enable frequency control
 					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency,
-							false, lock_STATUS, lock_OVERRIDE_TS);
+							false, lock_STATUS==1, lock_OVERRIDE_TS);
 //					gl_output("we are inside counter deduct! jitter_counter:%d, circuit_status:%d",jitter_counter,circuit_status);
 				}
 
 				if (jitter_counter == 0 && !jitter_toggler) {
 				circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false, enable_freq_control,measured_frequency,
-						enable_lock, lock_STATUS, lock_OVERRIDE_TS);
+						enable_lock==1, lock_STATUS==1, lock_OVERRIDE_TS);
 				}
 
 				if ((jitter_counter == 0) && gbcontroller.check_thermal_violation(Tw)) {
 					if (first){
 					circuit_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,false,measured_frequency,
-							enable_lock, lock_STATUS, lock_OVERRIDE_TS);
+							enable_lock==1, lock_STATUS==1, lock_OVERRIDE_TS);
 					}
 
 				} else if ((jitter_counter == 0) && !gbcontroller.check_thermal_violation(Tw) && gbcontroller.check_freq_violation(measured_frequency)){
 					// the expected status due to the frequency control
 					temp_status = gbcontroller.thermostat_controller(Tw, circuit_status, false,enable_freq_control,measured_frequency,
-							enable_lock, lock_STATUS, lock_OVERRIDE_TS);
+							enable_lock==1, lock_STATUS==1, lock_OVERRIDE_TS);
 					// if jitter_counter==0, it is either the first time (in which case let circuit_status=previous states)
 					// or the jitter_count has finished, so we let circuite_status = circuit_status_after_delay
 					// then we initialize jitter_counter, let circuit_status_after_delay=temp_status
@@ -654,7 +654,7 @@ void waterheater::thermostat(TIMESTAMP t0, TIMESTAMP t1){
 				} else {
 					// no change unless the gridBallast controller is enabled
 					circuit_status = heat_needed;
-					circuit_status = gbcontroller.frequency_controller(Tw, circuit_status, enable_lock, lock_STATUS);
+					circuit_status = gbcontroller.frequency_controller(Tw, circuit_status, enable_lock==1, lock_STATUS==1);
 					heat_needed = circuit_status;
 					/*
 					if(gridBallast_control_enable && measured_frequency < lower_frequency){

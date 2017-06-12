@@ -135,8 +135,8 @@ public:
 	int temp_cnt;
 
 	// force the circuit to be ON/OFF, we don't need it here
-	bool enable_lock;
-	bool lock_STATUS;
+	int enable_lock;
+	int lock_STATUS;
 	bool lock_OVERRIDE_TS;
 
 	// voltage
