@@ -9,7 +9,7 @@ In short, this is a version of GridLAB-D with a new object, "gridballast", which
 Tested and passing on MacOS as of 2017.
 
 ```sh
-git clone -b feature/730 https://github.com/jingkungao/gridlab-d.git
+git clone -b https://github.com/gridballast/utilitySimGB.git
 cd gridlab-d 
 cd third_party 
 chmod +x install_xercesc 
