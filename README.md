@@ -29,4 +29,4 @@ gridlabd --version
 
 ## Configuring the GridBallast Controller
 
-See project team.
+To configure the controller objects, please see the [jupyter notebook](https://github.com/gridballast/utilitySimGB/blob/master/controller_usage_demonstration.ipynb) walkthrough and documentation (also available in [PDF](https://github.com/gridballast/utilitySimGB/blob/master/controller_usage_demonstration.pdf)).
