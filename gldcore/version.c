@@ -10,7 +10,7 @@
 #include "build.h" // BRANCH will be defined automatically from the ticket
 
 #ifndef BRANCH
-#define BRANCH "Keeler" // update this from legal.h each time trunk is branched
+#define BRANCH "4+GridBallast" // GridBallast is here.
 #endif
 
 #ifndef BUILDNUM
